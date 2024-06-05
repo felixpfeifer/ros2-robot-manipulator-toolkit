@@ -30,3 +30,9 @@
 *.exe
 *.out
 *.app
+
+robo_teleoperation/cmake-build-debug/
+
+robo_teleoperation/.idea/
+
+robo_teleoperation/build/
