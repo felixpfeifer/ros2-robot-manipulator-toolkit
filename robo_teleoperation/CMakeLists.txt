@@ -11,26 +11,49 @@ find_package(rclcpp REQUIRED)
 find_package(moveit_ros_planning_interface REQUIRED)
 find_package(moveit_core REQUIRED)
 find_package(moveit_ros_planning REQUIRED)
+find_package(sensor_msgs REQUIRED)
 
 # uncomment the following section in order to fill in
 # further dependencies manually.
 # find_package(<dependency> REQUIRED)
 
-add_executable(keyboard_teleop_controller_node src/keyboard_teleop_controller_node.cpp)
+add_executable(teleop_controller_node src/teleoperation_backend_node.cpp
+        include/robo_teleoperation/teleoperation_backend_node.hpp)
 
-ament_target_dependencies(keyboard_teleop_controller_node
+add_executable(keyboard_teleop_controller_node src/Keybord_Teleop_Controller.cpp
+        include/robo_teleoperation/Keybord_Teleop_Controller.hpp)
+
+ament_target_dependencies(teleop_controller_node
   "rclcpp"
   "moveit_ros_planning_interface"
   "moveit_core"
   "moveit_ros_planning")
 
-target_include_directories(keyboard_teleop_controller_node PUBLIC
+ament_target_dependencies(keyboard_teleop_controller_node
+  "rclcpp"
+  "moveit_ros_planning_interface"
+  "moveit_core"
+  "moveit_ros_planning"
+        "sensor_msgs"
+)
+
+target_include_directories(keyboard_teleop_controller_node  PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
   $<INSTALL_INTERFACE:include>)
+
+target_include_directories(teleop_controller_node  PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+        $<INSTALL_INTERFACE:include>)
+
 target_compile_features(keyboard_teleop_controller_node PUBLIC c_std_99 cxx_std_17)  # Require C99 and C++17
+target_compile_features(teleop_controller_node PUBLIC c_std_99 cxx_std_17)  # Require C99 and C++17
+
 
 install(TARGETS keyboard_teleop_controller_node
   DESTINATION lib/${PROJECT_NAME})
+
+install(TARGETS teleop_controller_node
+        DESTINATION lib/${PROJECT_NAME})
 
 install(DIRECTORY launch
   DESTINATION share/${PROJECT_NAME})

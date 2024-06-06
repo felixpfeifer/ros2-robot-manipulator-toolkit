@@ -8,9 +8,9 @@ def generate_launch_description():
 
     # MoveGroupInterface demo executable
     node = Node(
-        name="keyboard_node",
+        name="teleop_controller_node",
         package="robo_teleoperation",
-        executable="keyboard_teleop_controller_node",
+        executable="teleop_controller_node",
         output="screen",
         parameters=[
             moveit_config.robot_description,
