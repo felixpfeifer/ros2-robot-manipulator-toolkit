@@ -11,7 +11,8 @@ find_package(rclcpp REQUIRED)
 find_package(moveit_ros_planning_interface REQUIRED)
 find_package(moveit_core REQUIRED)
 find_package(moveit_ros_planning REQUIRED)
-find_package(sensor_msgs REQUIRED)
+find_package(moveit_visual_tools REQUIRED)
+find_package(robot_teleoperation_interface REQUIRED)
 
 # uncomment the following section in order to fill in
 # further dependencies manually.
@@ -27,15 +28,18 @@ ament_target_dependencies(teleop_controller_node
   "rclcpp"
   "moveit_ros_planning_interface"
   "moveit_core"
-  "moveit_ros_planning")
+  "moveit_ros_planning"
+  "robot_teleoperation_interface"
+)
 
 ament_target_dependencies(keyboard_teleop_controller_node
   "rclcpp"
   "moveit_ros_planning_interface"
   "moveit_core"
   "moveit_ros_planning"
-        "sensor_msgs"
+  "robot_teleoperation_interface"
 )
+
 
 target_include_directories(keyboard_teleop_controller_node  PUBLIC
   $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
@@ -56,7 +60,8 @@ install(TARGETS teleop_controller_node
         DESTINATION lib/${PROJECT_NAME})
 
 install(DIRECTORY launch
-  DESTINATION share/${PROJECT_NAME})
+        DESTINATION share/${PROJECT_NAME}/
+)
 
 if(BUILD_TESTING)
   find_package(ament_lint_auto REQUIRED)
