@@ -5,7 +5,7 @@ from moveit_configs_utils import MoveItConfigsBuilder
 
 def generate_launch_description():
     moveit_config = (
-        MoveItConfigsBuilder("robot",package_name="melfa_assista_moviet")
+        MoveItConfigsBuilder("robot",package_name="melfa_assista_moveit_config")
         .robot_description(file_path="config/robot.urdf.xacro")
         .robot_description_semantic(file_path="config/robot.srdf")
         .trajectory_execution(file_path="config/moveit_controllers.yaml")

@@ -19,10 +19,12 @@ find_package(robot_teleoperation_interface REQUIRED)
 # find_package(<dependency> REQUIRED)
 
 add_executable(teleop_controller_node src/teleoperation_backend_node.cpp
-        include/robo_teleoperation/teleoperation_backend_node.hpp)
+        include/robo_teleoperation/teleoperation_backend_node.hpp
+)
 
-add_executable(keyboard_teleop_controller_node src/Keybord_Teleop_Controller.cpp
-        include/robo_teleoperation/Keybord_Teleop_Controller.hpp)
+add_executable(direct_movement_node src/direct_movement_node.cpp
+)
+
 
 ament_target_dependencies(teleop_controller_node
   "rclcpp"
@@ -32,7 +34,7 @@ ament_target_dependencies(teleop_controller_node
   "robot_teleoperation_interface"
 )
 
-ament_target_dependencies(keyboard_teleop_controller_node
+ament_target_dependencies(direct_movement_node
   "rclcpp"
   "moveit_ros_planning_interface"
   "moveit_core"
@@ -41,22 +43,23 @@ ament_target_dependencies(keyboard_teleop_controller_node
 )
 
 
-target_include_directories(keyboard_teleop_controller_node  PUBLIC
-  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
-  $<INSTALL_INTERFACE:include>)
 
 target_include_directories(teleop_controller_node  PUBLIC
         $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
         $<INSTALL_INTERFACE:include>)
 
-target_compile_features(keyboard_teleop_controller_node PUBLIC c_std_99 cxx_std_17)  # Require C99 and C++17
+target_include_directories(direct_movement_node  PUBLIC
+        $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+        $<INSTALL_INTERFACE:include>)
+
+
 target_compile_features(teleop_controller_node PUBLIC c_std_99 cxx_std_17)  # Require C99 and C++17
-
-
-install(TARGETS keyboard_teleop_controller_node
-  DESTINATION lib/${PROJECT_NAME})
+target_compile_features(direct_movement_node PUBLIC c_std_99 cxx_std_17)  # Require C99 and C++17
 
 install(TARGETS teleop_controller_node
+        DESTINATION lib/${PROJECT_NAME})
+
+install(TARGETS direct_movement_node
         DESTINATION lib/${PROJECT_NAME})
 
 install(DIRECTORY launch

@@ -1,6 +1,11 @@
-//
-// Created by felix on 06.06.24.
-//
+/******************************************************************************
+ * Filename:    teleoperation_backend_node.hpp
+ * Description: Backend node for the teleoperation interface
+ * Author:      Felix Pfeifer
+ * Email:       fpfeifer@stud.hs-heilbronn.de
+ * Version:     2.0
+ * License:     MIT License
+ ******************************************************************************/
 
 #ifndef ROBO_TELEOPERATION_TELEOPERATION_BACKEND_NODE_HPP
 #define ROBO_TELEOPERATION_TELEOPERATION_BACKEND_NODE_HPP
@@ -43,15 +48,20 @@ namespace robo_teleoperation {
         /**
          * Moves the robot to the home position
          */
-        void moveNamedPositon(const std::string& position);
+        void moveNamedPositon(const std::string &position);
 
+        /**
+         * Moves the robot to the specified pose
+         * @param msg the teleoperation message
+         *
+         */
         void moveRobot(robot_teleoperation_interface::msg::Teleop::SharedPtr msg);
 
         /**
          * Moves the robot to the specified joint values
          * @param joint_values
          */
-        void moveJoint(std::vector<double> joint_values);
+        void moveJoint(std::vector<double> joint_values, bool jog);
 
         /**
          * Moves the robot to the specified pose in the World Frame
@@ -72,27 +82,66 @@ namespace robo_teleoperation {
 
         /**
          * Sets the joint constraints for the robot
+         * Limits the Joint 1 and 4 to move in a specific range -90° to 90° due
+         * the behavior of the robot to flip the axis 1 and 4 when the robot is moved
          *
          */
         void setJointConstraints();
 
     private:
+        /**
+         * Callback function for the timer
+         * moves the robot to a random position or the home position
+         *
+         */
         void timer_callback();
-        rclcpp::Logger logger = get_logger();
-        rclcpp::Node::SharedPtr node;
-        moveit::planning_interface::MoveGroupInterfacePtr moveGroupInterface;
-        moveit::core::JointModelGroup *jointModelGroup;
-        rclcpp::executors::SingleThreadedExecutor executor_;
-        rclcpp::TimerBase::SharedPtr timer_;
-        const std::string PLANNING_GROUP = "robot";
-        moveit::planning_interface::PlanningSceneInterface planning_scene_interface;
-        bool homing;
+
+        /**
+         * Switches the end effector between the gripper and the camera
+         * @param gripper if true the gripper is selected, otherwise the camera
+         */
+        void switchEndEffector(bool gripper);
+
+        /**
+         * Aligns the TCP with the World Frame axis
+         * only the orientation of the TCP is changed
+         */
+        void alignTCP(void);
+
+        void changeOrientation(geometry_msgs::msg::Pose &pose, double angle, int axis);
+
+        /**
+         * Changes the orientation of the target pose adding the given roll, pitch and yaw values
+         * to the current orientation
+         * @param target_pose the target pose to be modified
+         * @param roll angle in radians (rotation around x-axis)
+         * @param pitch angle in radians (rotation around y-axis)
+         * @param yaw angle in radians  (rotation around z-axis)
+         * @return the modified target_pose with the new orientation
+         */
+        geometry_msgs::msg::Pose &
+        changeOrientation(geometry_msgs::msg::Pose &target_pose, double roll, double pitch, double yaw);
 
         // Publischer for the Teleoperation Command and Subscriper
         rclcpp::Publisher<robot_teleoperation_interface::msg::Teleop>::SharedPtr teleoperation_interface_publisher;
         rclcpp::Subscription<robot_teleoperation_interface::msg::Teleop>::SharedPtr teleoperation_interface_subscription;
-        geometry_msgs::msg::Pose getPose(std::vector<double> value);
-        geometry_msgs::msg::Pose getPose(std::vector<double> value, geometry_msgs::msg::Pose pose);
+
+        // Constants for the MoveGroupInterface
+        const std::string PLANNING_GROUP = "robot";
+        const std::string GRIPPER_LINK = "tcp_gripper";
+        const std::string CAMERA_LINK = "camera_tcp";
+
+        rclcpp::Logger logger = get_logger();
+        rclcpp::Node::SharedPtr node;
+        moveit::planning_interface::MoveGroupInterfacePtr moveGroupInterface;
+        rclcpp::executors::SingleThreadedExecutor executor_;
+        rclcpp::TimerBase::SharedPtr timer_;
+
+        bool homing;
+
+        moveit::planning_interface::PlanningSceneInterface planning_scene_interface;
+
+
     };
 }
 #endif //ROBO_TELEOPERATION_TELEOPERATION_BACKEND_NODE_HPP
