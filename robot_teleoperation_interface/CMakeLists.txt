@@ -16,6 +16,7 @@ set(srv_files
   "srv/AllignTCP.srv"
   "srv/Hand2Eye.srv"
   "srv/MoveRobot.srv"
+  "srv/MovePoint.srv"
   "srv/SelectTool.srv"
   "srv/TeachPoint.srv"
   "srv/Tool.srv"

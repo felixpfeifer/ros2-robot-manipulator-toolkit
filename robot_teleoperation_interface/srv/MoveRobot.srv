@@ -1,7 +1,6 @@
 
 int32 frame_id # frame id of the data 0 Joint 1 World 
-
-bool[] axis
+int32[] axis
 float32[] data
 ---
 bool success
