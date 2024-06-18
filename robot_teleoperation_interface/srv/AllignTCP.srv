@@ -1,0 +1,5 @@
+bool hs_pose
+geometry_msgs/PoseStamped pose # Optional pose to allign the robot with tcp z and object z, when emtpy allign to world
+---
+bool success
+string message
