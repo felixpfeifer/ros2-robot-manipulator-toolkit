@@ -10,8 +10,22 @@ find_package(ament_cmake REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(rosidl_default_generators REQUIRED)
 
+
+# declare the service files to generate code for
+set(srv_files
+  "srv/AllignTCP.srv"
+  "srv/Hand2Eye.srv"
+  "srv/MoveRobot.srv"
+  "srv/MovePoint.srv"
+  "srv/SelectTool.srv"
+  "srv/TeachPoint.srv"
+  "srv/Tool.srv"
+)
+
 rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/Teleop.msg"
+  ${srv_files}
+
   DEPENDENCIES geometry_msgs # Add packages that above messages depend on, in this case geometry_msgs for Sphere.msg
 )
 # uncomment the following section in order to fill in

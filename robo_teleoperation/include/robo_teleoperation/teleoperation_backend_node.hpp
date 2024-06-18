@@ -3,7 +3,7 @@
  * Description: Backend node for the teleoperation interface
  * Author:      Felix Pfeifer
  * Email:       fpfeifer@stud.hs-heilbronn.de
- * Version:     2.0
+ * Version:     2.1
  * License:     MIT License
  ******************************************************************************/
 
@@ -32,12 +32,42 @@
 #include <moveit/planning_interface/planning_request.h>
 #include <moveit/planning_interface/planning_interface.h>
 
+// Services
+#include "robot_teleoperation_interface/srv/allign_tcp.hpp"
+#include "robot_teleoperation_interface/srv/select_tool.hpp"
+#include "robot_teleoperation_interface/srv/move_robot.hpp"
+#include "robot_teleoperation_interface/srv/move_point.hpp"
+#include "robot_teleoperation_interface/srv/hand2_eye.hpp"
+#include "robot_teleoperation_interface/srv/teach_point.hpp"
+#include "robot_teleoperation_interface/srv/tool.hpp"
+
+
+#include "std_msgs/msg/float64_multi_array.hpp"
+
+
+// MongoDB
+#include <mongocxx/client.hpp>
+#include <mongocxx/instance.hpp>
+#include <mongocxx/uri.hpp>
+#include <mongocxx/stdx.hpp>
+#include <mongocxx/exception/exception.hpp>
+#include <mongocxx/exception/logic_error.hpp>
+#include <mongocxx/exception/query_exception.hpp>
+#include <mongocxx/exception/bulk_write_exception.hpp>
+#include <mongocxx/exception/gridfs_exception.hpp>
+#include <bsoncxx/json.hpp>
+#include <mongocxx/pipeline.hpp>
+#include <bsoncxx/builder/stream/document.hpp>
+#include <bsoncxx/builder/stream/helpers.hpp>
+#include <iostream>
 
 #include <chrono>
 #include <memory>
 #include <string>
 
 namespace robo_teleoperation {
+
+    using CmdType = std_msgs::msg::Float64MultiArray;
 
     class TeleoperationBackendNode : public rclcpp::Node {
     public:
@@ -56,6 +86,7 @@ namespace robo_teleoperation {
          *
          */
         void moveRobot(robot_teleoperation_interface::msg::Teleop::SharedPtr msg);
+
 
         /**
          * Moves the robot to the specified joint values
@@ -80,6 +111,7 @@ namespace robo_teleoperation {
          */
         void moveRandom();
 
+
         /**
          * Sets the joint constraints for the robot
          * Limits the Joint 1 and 4 to move in a specific range -90° to 90° due
@@ -87,6 +119,44 @@ namespace robo_teleoperation {
          *
          */
         void setJointConstraints();
+
+        /**
+         * Saves the current pose of the robot to the MongoDB
+         * @param pose the current pose of the robot
+         * @param name the name of the pose
+         */
+        void safePosetoMongoDB(geometry_msgs::msg::Pose pose, std::string name);
+
+        // Services
+
+        /**
+        * Moves the robot to the specified pose from the Service
+        * @param request the request from the service
+        * @param response the response from the service
+        *
+        */
+        void moveRobotService(const std::shared_ptr<robot_teleoperation_interface::srv::MoveRobot::Request> request,
+                              std::shared_ptr<robot_teleoperation_interface::srv::MoveRobot::Response> response);
+
+
+        void selectToolService(const std::shared_ptr<robot_teleoperation_interface::srv::SelectTool::Request> request,
+                               std::shared_ptr<robot_teleoperation_interface::srv::SelectTool::Response> response);
+
+        void allignTCPService(const std::shared_ptr<robot_teleoperation_interface::srv::AllignTCP::Request> request,
+                              std::shared_ptr<robot_teleoperation_interface::srv::AllignTCP::Response> response);
+
+        void hand2EyeService(const std::shared_ptr<robot_teleoperation_interface::srv::Hand2Eye::Request> request,
+                             std::shared_ptr<robot_teleoperation_interface::srv::Hand2Eye::Response> response);
+
+        void teachPointService(const std::shared_ptr<robot_teleoperation_interface::srv::TeachPoint::Request> request,
+                               std::shared_ptr<robot_teleoperation_interface::srv::TeachPoint::Response> response);
+
+        void toolService(const std::shared_ptr<robot_teleoperation_interface::srv::Tool::Request> request,
+                         std::shared_ptr<robot_teleoperation_interface::srv::Tool::Response> response);
+
+        void movePointService(const std::shared_ptr<robot_teleoperation_interface::srv::MovePoint::Request> request,
+                              std::shared_ptr<robot_teleoperation_interface::srv::MovePoint::Response> response);
+
 
     private:
         /**
@@ -108,6 +178,12 @@ namespace robo_teleoperation {
          */
         void alignTCP(void);
 
+        /**
+         * Changes the orientation of the given pose by the given angle around the given axis
+         * @param pose the pose to be modified
+         * @param angle the angle in radians
+         * @param axis  the axis to rotate around (0 = x, 1 = y, 2 = z)
+         */
         void changeOrientation(geometry_msgs::msg::Pose &pose, double angle, int axis);
 
         /**
@@ -122,9 +198,23 @@ namespace robo_teleoperation {
         geometry_msgs::msg::Pose &
         changeOrientation(geometry_msgs::msg::Pose &target_pose, double roll, double pitch, double yaw);
 
-        // Publischer for the Teleoperation Command and Subscriper
-        rclcpp::Publisher<robot_teleoperation_interface::msg::Teleop>::SharedPtr teleoperation_interface_publisher;
-        rclcpp::Subscription<robot_teleoperation_interface::msg::Teleop>::SharedPtr teleoperation_interface_subscription;
+        // Services from the Teleoperation Interface
+        rclcpp::Service<robot_teleoperation_interface::srv::MoveRobot>::SharedPtr move_robot_service;
+        rclcpp::Service<robot_teleoperation_interface::srv::MovePoint>::SharedPtr move_point_service;
+        rclcpp::Service<robot_teleoperation_interface::srv::SelectTool>::SharedPtr select_tool_service;
+        rclcpp::Service<robot_teleoperation_interface::srv::AllignTCP>::SharedPtr allign_tcp_service;
+        rclcpp::Service<robot_teleoperation_interface::srv::Hand2Eye>::SharedPtr hand2_eye_service;
+        rclcpp::Service<robot_teleoperation_interface::srv::TeachPoint>::SharedPtr teach_point_service;
+        rclcpp::Service<robot_teleoperation_interface::srv::Tool>::SharedPtr tool_service;
+
+
+        // Publisher for the GPIO Message of the Hardware Interface
+
+        rclcpp::Publisher<CmdType>::SharedPtr gpio_publisher;
+        rclcpp::Subscription<CmdType>::SharedPtr gpio_subscriber;
+
+        void gpioCallback(const CmdType::SharedPtr msg);
+
 
         // Constants for the MoveGroupInterface
         const std::string PLANNING_GROUP = "robot";
@@ -140,6 +230,15 @@ namespace robo_teleoperation {
         bool homing;
 
         moveit::planning_interface::PlanningSceneInterface planning_scene_interface;
+
+        // MongoDB
+        mongocxx::instance instance{};
+        mongocxx::client client{mongocxx::uri{}};
+        mongocxx::database db = client["Seminararbeit"];
+        mongocxx::collection poses = db["Poses"];
+
+        // Gripper State
+        bool gripper_open;
 
 
     };
