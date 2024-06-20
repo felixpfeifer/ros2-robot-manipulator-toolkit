@@ -76,6 +76,11 @@ namespace robo_teleoperation {
         // Timer that runs every 20ms to get the current state of the robot
         //timer_ = this->create_wall_timer(1s, std::bind(&TeleoperationBackendNode::timer_callback, this));
 
+        // Subscriper for the twist message
+        twist_subscriber = this->create_subscription<geometry_msgs::msg::Twist>(
+                "/move_robot/twist", 10,
+                std::bind(&TeleoperationBackendNode::twistCallback, this, std::placeholders::_1));
+
     }
 
 
@@ -140,6 +145,7 @@ namespace robo_teleoperation {
 
     void TeleoperationBackendNode::moveWorldPose(geometry_msgs::msg::Pose pose) {
         RCLCPP_INFO(this->get_logger(), "Move Robot to World Pose");
+        moveGroupInterface->setStartState(*moveGroupInterface->getCurrentState());
         moveGroupInterface->setPoseTarget(pose);
         moveGroupInterface->move();
 
@@ -610,6 +616,29 @@ namespace robo_teleoperation {
             RCLCPP_ERROR(this->get_logger(), "Pose not found");
             response->success = false;
         }
+    }
+
+    void TeleoperationBackendNode::twistCallback(const geometry_msgs::msg::Twist::SharedPtr msg) {
+
+        // Get the current Pose
+        auto pose = moveGroupInterface->getCurrentPose().pose;
+        // Add the values of the array to the current Pose
+        pose.position.x += msg->linear.x;
+        pose.position.y += msg->linear.y;
+        pose.position.z += msg->linear.z;
+        // Set the Orientation
+        tf2::Quaternion q;
+        tf2::convert(pose.orientation, q);
+        tf2::Matrix3x3 m(q);
+        double roll, pitch, yaw;
+        m.getRPY(roll, pitch, yaw);
+        roll += msg->angular.x;
+        pitch += msg->angular.y;
+        yaw += msg->angular.z;
+        q.setRPY(roll, pitch, yaw);
+        tf2::convert(q, pose.orientation);
+
+        moveWorldPose(pose);
     }
 
 }
