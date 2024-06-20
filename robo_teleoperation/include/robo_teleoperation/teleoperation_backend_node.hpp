@@ -43,6 +43,7 @@
 
 
 #include "std_msgs/msg/float64_multi_array.hpp"
+#include "geometry_msgs/msg/twist.hpp"
 
 
 // MongoDB
@@ -157,6 +158,9 @@ namespace robo_teleoperation {
         void movePointService(const std::shared_ptr<robot_teleoperation_interface::srv::MovePoint::Request> request,
                               std::shared_ptr<robot_teleoperation_interface::srv::MovePoint::Response> response);
 
+        // Subcriber the twist message
+        void twistCallback(const geometry_msgs::msg::Twist::SharedPtr msg);
+        rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr twist_subscriber;
 
     private:
         /**
