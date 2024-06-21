@@ -9,8 +9,9 @@
 #include "sensopart_interfaces/srv/calibration.hpp"
 #include "sensopart_interfaces/srv/get_image.hpp"
 #include "sensopart_interfaces/srv/get_jobs.hpp"
-#include "sensopart_interfaces/srv/set_job.hpp"
 #include "sensopart_interfaces/srv/get_pose.hpp"
+#include "sensopart_interfaces/srv/trigger_robotics.hpp"
+#include "sensopart_interfaces/srv/set_job.hpp"
 
 #include <moveit/move_group_interface/move_group_interface.h>
 #include <moveit/planning_scene/planning_scene.h>
@@ -66,6 +67,8 @@ private:
     rclcpp::Client<sensopart_interfaces::srv::GetImage>::SharedPtr get_image_service_;
     rclcpp::Client<sensopart_interfaces::srv::GetJobs>::SharedPtr get_jobs_service_;
     rclcpp::Client<sensopart_interfaces::srv::SetJob>::SharedPtr set_job_service_;
+    rclcpp::Client<sensopart_interfaces::srv::TriggerRobotics>::SharedPtr trigger_robotics_service_;
+
 
     // Service Servers for the Sensopart Vision System to get a Pose from the teleop Packet
     rclcpp::Service<sensopart_interfaces::srv::GetPose>::SharedPtr get_pose_service_;
@@ -84,10 +87,17 @@ private:
     mongocxx::instance instance{};
     mongocxx::client client{mongocxx::uri{}};
     mongocxx::database db = client["Seminararbeit"];
-    mongocxx::collection collection = db["Poses"];
+    mongocxx::collection collection = db["calibration_poses"];
 
 
+    void checkCalibrationPoses();
+    // MongoDB get all Poses for the Hand to Eye Calibration
+    std::vector<geometry_msgs::msg::Pose> getCalibrationPosesFromDB();
 
+    std::vector<double> poseToVector(geometry_msgs::msg::Pose pose);
+
+    // Moveit Node for the Sensopart Vision System
+    rclcpp::Node::SharedPtr node;
 
 public:
 
