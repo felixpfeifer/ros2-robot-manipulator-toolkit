@@ -1,4 +1,7 @@
-bool close
+uint16 imagenumber
+bool init
+bool compute
 ---
+uint16 imagenumber
 bool success
 string message

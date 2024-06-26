@@ -14,15 +14,14 @@ void setup() {
     align_tcp_client = node->create_client<robot_teleoperation_interface::srv::AllignTCP>("allign_tcp");
     select_tool_client = node->create_client<robot_teleoperation_interface::srv::SelectTool>("select_tool");
     move_robot_client = node->create_client<robot_teleoperation_interface::srv::MoveRobot>("move_robot");
-    hand2_eye_client = node->create_client<robot_teleoperation_interface::srv::Hand2Eye>("hand2_eye");
     teach_point_client = node->create_client<robot_teleoperation_interface::srv::TeachPoint>("teach_point");
     tool_client = node->create_client<robot_teleoperation_interface::srv::Tool>("tool");
     move_point_client = node->create_client<robot_teleoperation_interface::srv::MovePoint>("move_point");
 }
 
-std::vector<std::string> getTerminalInput() {
+std::vector <std::string> getTerminalInput() {
     std::string input;
-    std::vector<std::string> input_vector;
+    std::vector <std::string> input_vector;
     std::getline(std::cin, input);
     std::istringstream iss(input);
     for (std::string input; iss >> input;) {
@@ -46,7 +45,7 @@ void controllLoop() {
 
     while (rclcpp::ok()) {
 
-        std::vector<std::string> input = getTerminalInput();
+        std::vector <std::string> input = getTerminalInput();
         if (input.size() == 0) {
             continue;
         }
@@ -197,7 +196,7 @@ void controllLoop() {
             // Send the request
             auto result = move_robot_client->async_send_request(request);
             rclcpp::spin_until_future_complete(node, result);
-        }else if(input[0] == "move_point"){
+        } else if (input[0] == "move_point") {
 
             // Check if Point name is given
             if (input.size() == 1) {
@@ -213,13 +212,13 @@ void controllLoop() {
             } else {
                 RCLCPP_ERROR(logger, "Moving to point failed");
             }
-        }
-        else {
+        } else {
             RCLCPP_ERROR(logger, "Unknown command");
         }
 
 
     }
+
 }
 
 

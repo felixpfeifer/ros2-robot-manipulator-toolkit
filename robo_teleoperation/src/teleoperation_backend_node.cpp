@@ -65,6 +65,8 @@ namespace robo_teleoperation {
 
         // Set Joint Constraints to avoid flipping
         setJointConstraints();
+        // Create a Planning Scene
+        setupPlanningScene();
 
         // Print Current Planning Frame
         RCLCPP_INFO(this->get_logger(), "Planning Frame: %s", moveGroupInterface->getPlanningFrame().c_str());
@@ -80,6 +82,7 @@ namespace robo_teleoperation {
         twist_subscriber = this->create_subscription<geometry_msgs::msg::Twist>(
                 "/move_robot/twist", 10,
                 std::bind(&TeleoperationBackendNode::twistCallback, this, std::placeholders::_1));
+
 
     }
 
@@ -122,6 +125,7 @@ namespace robo_teleoperation {
             homing = true;
 
         }
+
     }
 
     void TeleoperationBackendNode::moveNamedPositon(const std::string &position) {
@@ -535,6 +539,8 @@ namespace robo_teleoperation {
     void TeleoperationBackendNode::hand2EyeService(
             const std::shared_ptr<robot_teleoperation_interface::srv::Hand2Eye::Request> request,
             std::shared_ptr<robot_teleoperation_interface::srv::Hand2Eye::Response> response) {
+        RCLCPP_INFO(this->get_logger(), "Hand2Eye Service");
+
 
     }
 
@@ -545,7 +551,6 @@ namespace robo_teleoperation {
         auto pose = moveGroupInterface->getCurrentPose().pose;
         safePosetoMongoDB(pose, request->name);
         response->success = true;
-
 
     }
 
@@ -563,6 +568,7 @@ namespace robo_teleoperation {
         }
         gpio_publisher->publish(cmd);
         response->success = true;
+        return;
     }
 
     void TeleoperationBackendNode::gpioCallback(const CmdType::SharedPtr msg) {
@@ -639,6 +645,120 @@ namespace robo_teleoperation {
         tf2::convert(q, pose.orientation);
 
         moveWorldPose(pose);
+    }
+
+    void TeleoperationBackendNode::setupPlanningScene() {
+
+        moveit_msgs::msg::PlanningSceneWorld psw;
+        // Add the Table as a plane under the robot as a collision object
+        moveit_msgs::msg::CollisionObject table;
+        table.header.frame_id = moveGroupInterface->getPlanningFrame();
+        table.id = "table";
+        shape_msgs::msg::SolidPrimitive table_primitive;
+        table_primitive.type = table_primitive.BOX;
+        table_primitive.dimensions = {1.0, 1.0, 0.05};
+        geometry_msgs::msg::Pose table_pose;
+        table_pose.position.x = 0.0;
+        table_pose.position.y = 0.0;
+        table_pose.position.z = -0.05;
+        table_pose.orientation.w = 1.0;
+        table.primitives.push_back(table_primitive);
+        table.primitive_poses.push_back(table_pose);
+        table.operation = table.ADD;
+        planning_scene_interface.applyCollisionObject(table);
+        psw.collision_objects.push_back(table);
+        moveit_msgs::msg::PlanningScene ps;
+        ps.is_diff = true;
+        ps.world = psw;
+        auto scene_pub = node->create_publisher<moveit_msgs::msg::PlanningScene>("planning_scene", 10);
+        scene_pub->publish(ps);
+
+
+        // Debugging output
+        RCLCPP_INFO(this->get_logger(), "Added collision object 'table' with frame_id: %s",
+                    table.header.frame_id.c_str());
+        RCLCPP_INFO(this->get_logger(), "Table dimensions: %f, %f, %f", table_primitive.dimensions[0],
+                    table_primitive.dimensions[1], table_primitive.dimensions[2]);
+        RCLCPP_INFO(this->get_logger(), "Table position: %f, %f, %f", table_pose.position.x, table_pose.position.y,
+                    table_pose.position.z);
+
+
+        // Add the kiste.stl to the planning_scene_interface
+        moveit_msgs::msg::CollisionObject collision_object;
+        collision_object.header.frame_id = moveGroupInterface->getPlanningFrame();
+        collision_object.id = "kiste";
+        // Load the stl model of
+        shapes::Shape *kiste = shapes::createMeshFromResource("package://robo_teleoperation/meshes/kiste.stl");
+        shape_msgs::msg::Mesh mesh;
+        shapes::ShapeMsg mesh_msg;
+        shapes::constructMsgFromShape(kiste, mesh_msg);
+        mesh = boost::get<shape_msgs::msg::Mesh>(mesh_msg);
+        collision_object.meshes.push_back(mesh);
+        geometry_msgs::msg::Pose kiste_pose;
+        kiste_pose.position.x = 1.0;
+        kiste_pose.position.y = 1.0;
+        kiste_pose.position.z = 0;
+        kiste_pose.orientation.w = 1.0;
+        collision_object.mesh_poses.push_back(kiste_pose);
+        collision_object.operation = collision_object.ADD;
+        planning_scene_interface.applyCollisionObject(collision_object);
+
+        // Debugging output
+        RCLCPP_INFO(this->get_logger(), "Added collision object 'Kiste' with frame_id: %s",
+                    collision_object.header.frame_id.c_str());
+
+        // Add the kalibierplatte.stl
+        moveit_msgs::msg::CollisionObject kalibrierplatte;
+        kalibrierplatte.header.frame_id = moveGroupInterface->getPlanningFrame();
+        kalibrierplatte.id = "kalibrierplatte";
+        // Load the stl model of
+        shapes::Shape *kalibrierplatte_shape = shapes::createMeshFromResource(
+                "package://robo_teleoperation/meshes/kalibierplatte.stl");
+        shape_msgs::msg::Mesh kalibrierplatte_mesh;
+        shapes::ShapeMsg kalibrierplatte_mesh_msg;
+        shapes::constructMsgFromShape(kalibrierplatte_shape, kalibrierplatte_mesh_msg);
+        kalibrierplatte_mesh = boost::get<shape_msgs::msg::Mesh>(kalibrierplatte_mesh_msg);
+        kalibrierplatte.meshes.push_back(kalibrierplatte_mesh);
+        collision_object.meshes.push_back(mesh);
+        geometry_msgs::msg::Pose kali_pose;
+        kali_pose.position.x = 0.5;
+        kali_pose.position.y = 0.0;
+        kali_pose.position.z = 0.0;
+        kali_pose.orientation.w = 1.0;
+        collision_object.mesh_poses.push_back(kali_pose);
+        kalibrierplatte.operation = kalibrierplatte.ADD;
+        planning_scene_interface.applyCollisionObject(kalibrierplatte);
+
+        // Debugging output
+        RCLCPP_INFO(this->get_logger(), "Added collision object 'Kalibrierplatte' with frame_id: %s",
+                    kalibrierplatte.header.frame_id.c_str());
+
+        // Add the palette.stl
+        moveit_msgs::msg::CollisionObject palette;
+        palette.header.frame_id = moveGroupInterface->getPlanningFrame();
+        palette.id = "palette";
+        // Load the stl model of
+        shapes::Shape *palette_shape = shapes::createMeshFromResource(
+                "package://robo_teleoperation/meshes/palette.stl");
+        shape_msgs::msg::Mesh palette_mesh;
+        shapes::ShapeMsg palette_mesh_msg;
+        shapes::constructMsgFromShape(palette_shape, palette_mesh_msg);
+        palette_mesh = boost::get<shape_msgs::msg::Mesh>(palette_mesh_msg);
+        palette.meshes.push_back(palette_mesh);
+        collision_object.meshes.push_back(mesh);
+        geometry_msgs::msg::Pose palette_pose;
+        palette_pose.position.x = 1.0;
+        palette_pose.position.y = 0.0;
+        palette_pose.position.z = 0.0;
+        palette_pose.orientation.w = 1.0;
+        collision_object.mesh_poses.push_back(palette_pose);
+        palette.operation = palette.ADD;
+        planning_scene_interface.applyCollisionObject(palette);
+
+        // Debugging output
+        RCLCPP_INFO(this->get_logger(), "Added collision object 'Palette' with frame_id: %s",
+                    palette.header.frame_id.c_str());
+
     }
 
 }

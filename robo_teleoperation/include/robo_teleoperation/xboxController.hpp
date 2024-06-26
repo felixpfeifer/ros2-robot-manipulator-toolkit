@@ -21,6 +21,16 @@
 #include <rclcpp/utilities.hpp>
 #include <thread>
 
+#include <geometric_shapes/shape_operations.h>
+#include <geometric_shapes/mesh_operations.h>
+#include <moveit_msgs/msg/collision_object.hpp>
+
+#include "robot_teleoperation_interface/srv/select_tool.hpp"
+#include "robot_teleoperation_interface/srv/tool.hpp"
+
+using SetParameters = rcl_interfaces::srv::SetParameters;
+using Parameter = rcl_interfaces::msg::Parameter;
+using ParameterValue = rcl_interfaces::msg::ParameterValue;
 
 class xbox_controller : public rclcpp::Node {
 private:
@@ -31,6 +41,8 @@ private:
     const std::string JOINT_TOPIC = "/servo_node/delta_joint_cmds";
     const std::string EEF_FRAME_ID = "Link_6_1";
     const std::string BASE_FRAME_ID = "world";
+
+
 
 // Enums for button names -> axis/button array index
 // For XBOX 1 controller
@@ -64,6 +76,34 @@ private:
                                             {RIGHT_TRIGGER, 1.0}};
     std::map<Button, double> BUTTON_DEFAULTS;
 
+    bool is_gripper_open = false;
+    // Vector of int used for debouncing the 8 states
+    std::map<std::string, int> debouncing_states = {
+            {"A", 0},
+            {"B", 0},
+            {"X", 0},
+            {"Y", 0},
+            {"UP", 0},
+            {"DOWN", 0},
+            {"LEFT", 0},
+            {"RIGHT", 0}
+    };
+    // Service Client for the Teleop Backend
+    // Select Tool TCP for the Teleop Backend
+    rclcpp::Client<robot_teleoperation_interface::srv::SelectTool>::SharedPtr select_tool_client;
+    // Open Close the Gripper Tool
+    rclcpp::Client<robot_teleoperation_interface::srv::Tool>::SharedPtr tool_client;
+
+    std::shared_ptr<rclcpp::Client<SetParameters>> parameter_client_;
+    
+    // Future for the service call
+    rclcpp::Client<robot_teleoperation_interface::srv::Tool>::SharedFuture tool_future;
+    rclcpp::Client<robot_teleoperation_interface::srv::SelectTool>::SharedFuture select_tool_future;
+
+    // Callback for the service call
+    void tool_callback(rclcpp::Client<robot_teleoperation_interface::srv::Tool>::SharedFuture future);
+    void select_tool_callback(rclcpp::Client<robot_teleoperation_interface::srv::SelectTool>::SharedFuture future);
+
     // Publisher for the twist command
     rclcpp::Publisher<geometry_msgs::msg::TwistStamped>::SharedPtr twist_pub_;
     // Publisher for the joint command
@@ -77,6 +117,16 @@ private:
     bool convertJoyToCmd(const std::vector<float>& axes, const std::vector<int>& buttons,
                          std::unique_ptr<geometry_msgs::msg::TwistStamped>& twist,
                          std::unique_ptr<control_msgs::msg::JointJog>& joint);
+
+    const double MAX_ROT_SPEED = 0.5;
+    double max_rot = 0.5;
+    double currentAngularPercentage = 1.0;
+    const double MAX_VEL = 0.25;
+    double max_vel = 0.25;
+    double currentLinearVeloctiyPercent = 1.0;
+
+    rclcpp::Node::SharedPtr node;
+
 public:
 
     xbox_controller();
@@ -84,7 +134,6 @@ public:
     ~xbox_controller();
 
     void joy_callback(const sensor_msgs::msg::Joy::SharedPtr msg);
-
 
 
 };
