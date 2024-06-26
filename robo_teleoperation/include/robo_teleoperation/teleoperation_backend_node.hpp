@@ -43,7 +43,14 @@
 
 
 #include "std_msgs/msg/float64_multi_array.hpp"
+#include "geometry_msgs/msg/twist.hpp"
 
+#include <rclcpp/rclcpp.hpp>
+#include <rclcpp/node.hpp>
+#include <moveit/planning_scene_interface/planning_scene_interface.h>
+#include <geometric_shapes/shape_operations.h>
+#include <geometric_shapes/mesh_operations.h>
+#include <moveit_msgs/msg/collision_object.hpp>
 
 // MongoDB
 #include <mongocxx/client.hpp>
@@ -157,6 +164,12 @@ namespace robo_teleoperation {
         void movePointService(const std::shared_ptr<robot_teleoperation_interface::srv::MovePoint::Request> request,
                               std::shared_ptr<robot_teleoperation_interface::srv::MovePoint::Response> response);
 
+        void setupPlanningScene();
+
+        // Subcriber the twist message
+        void twistCallback(const geometry_msgs::msg::Twist::SharedPtr msg);
+
+        rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr twist_subscriber;
 
     private:
         /**
@@ -207,7 +220,6 @@ namespace robo_teleoperation {
         rclcpp::Service<robot_teleoperation_interface::srv::TeachPoint>::SharedPtr teach_point_service;
         rclcpp::Service<robot_teleoperation_interface::srv::Tool>::SharedPtr tool_service;
 
-
         // Publisher for the GPIO Message of the Hardware Interface
 
         rclcpp::Publisher<CmdType>::SharedPtr gpio_publisher;
@@ -229,6 +241,7 @@ namespace robo_teleoperation {
 
         bool homing;
 
+        // Planning Scene
         moveit::planning_interface::PlanningSceneInterface planning_scene_interface;
 
         // MongoDB
