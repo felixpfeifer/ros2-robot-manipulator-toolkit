@@ -1,6 +1,6 @@
-#include <rclcpp/rclcpp.hpp>
 #include "robo_teleoperation/xboxController.hpp"
 #include <rcl_interfaces/srv/set_parameters.hpp>
+#include <rclcpp/rclcpp.hpp>
 
 using SetParameters = rcl_interfaces::srv::SetParameters;
 using Parameter = rcl_interfaces::msg::Parameter;
@@ -36,7 +36,6 @@ xbox_controller::xbox_controller() : Node("xbox_controller") {
     RCLCPP_INFO(this->get_logger(), "Service /tool available");
 
 
-
     // Create a service client to start the ServoNode
     servo_start_client_ = node->create_client<std_srvs::srv::Trigger>("/servo_node/start_servo");
     RCLCPP_INFO(this->get_logger(), "Waiting for /servo_node/start_servo service...");
@@ -50,8 +49,6 @@ xbox_controller::xbox_controller() : Node("xbox_controller") {
     parameter_client_ = node->create_client<SetParameters>("/servo_node/set_parameters");
 
     RCLCPP_INFO(this->get_logger(), "Parameter client created");
-
-
 }
 
 void xbox_controller::joy_callback(const sensor_msgs::msg::Joy::SharedPtr msg) {
@@ -196,18 +193,16 @@ bool xbox_controller::convertJoyToCmd(const std::vector<float> &axes, const std:
     }
 
     return true;
-
 }
 
 void xbox_controller::tool_callback(rclcpp::Client<robot_teleoperation_interface::srv::Tool>::SharedFuture future) {
 
-    // On Success the the gripper is opened or closed and the state is updated
+    // On Success the gripper is opened or closed and the state is updated
     if (future.get()->success) {
         RCLCPP_INFO(this->get_logger(), "Gripper is %s", is_gripper_open ? "opened" : "closed");
     } else {
         RCLCPP_ERROR(this->get_logger(), "Failed to open/close the gripper");
     }
-
 }
 
 void xbox_controller::select_tool_callback(
@@ -219,7 +214,6 @@ void xbox_controller::select_tool_callback(
     } else {
         RCLCPP_ERROR(this->get_logger(), "Failed to select the tool");
     }
-
 }
 
 
