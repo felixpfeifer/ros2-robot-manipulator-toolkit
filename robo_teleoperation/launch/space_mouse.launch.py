@@ -46,7 +46,8 @@ def generate_launch_description():
 
     # Set the speed limits in the Servo parameters
     servo_yaml["moveit_servo"]["command_in_topic"]["max_linear_velocity"] = 0.25  # 250 mm/s
-    servo_yaml["moveit_servo"]["command_in_topic"]["max_angular_velocity"] = 0.25  # This value may need adjusting based on specific requirements
+    servo_yaml["moveit_servo"]["command_in_topic"]["max_angular_velocity"] = 0.25  # This value may need adjusting
+    # based on specific requirements
 
     servo_params = {"moveit_servo": servo_yaml}
 

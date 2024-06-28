@@ -46,15 +46,13 @@ def generate_launch_description():
 
     # Set the speed limits in the Servo parameters
     servo_yaml["moveit_servo"]["command_in_topic"]["max_linear_velocity"] = 0.25  # 250 mm/s
-    servo_yaml["moveit_servo"]["command_in_topic"]["max_angular_velocity"] = 0.25  # This value may need adjusting based on specific requirements
+    servo_yaml["moveit_servo"]["command_in_topic"]["max_angular_velocity"] = 0.25  # This value may need adjusting
+    # based on specific requirements
 
     servo_params = {"moveit_servo": servo_yaml}
-    
 
     if servo_yaml is None:
         raise RuntimeError("Failed to load servo YAML file")
-
-    
 
     # Launch a standalone Servo node.
     # As opposed to a node component, this may be necessary (for example) if Servo is running on a different PC
@@ -69,7 +67,6 @@ def generate_launch_description():
         ],
         output="screen",
     )
-
 
     # Launch the Xbox controller node
     xbox_controller_node = launch_ros.actions.Node(
@@ -100,6 +97,5 @@ def generate_launch_description():
             xbox_controller_node,
         ]
     )
-
 
 # This script should not be run directly, but by the launch system.

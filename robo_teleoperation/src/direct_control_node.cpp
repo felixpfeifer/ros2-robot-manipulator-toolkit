@@ -10,7 +10,7 @@
 #include "../include/robo_teleoperation/direct_control_node.hpp"
 
 void setup() {
-    // Setup the service clients
+    // Set up the service clients
     align_tcp_client = node->create_client<robot_teleoperation_interface::srv::AllignTCP>("allign_tcp");
     select_tool_client = node->create_client<robot_teleoperation_interface::srv::SelectTool>("select_tool");
     move_robot_client = node->create_client<robot_teleoperation_interface::srv::MoveRobot>("move_robot");
@@ -19,9 +19,9 @@ void setup() {
     move_point_client = node->create_client<robot_teleoperation_interface::srv::MovePoint>("move_point");
 }
 
-std::vector <std::string> getTerminalInput() {
+std::vector<std::string> getTerminalInput() {
     std::string input;
-    std::vector <std::string> input_vector;
+    std::vector<std::string> input_vector;
     std::getline(std::cin, input);
     std::istringstream iss(input);
     for (std::string input; iss >> input;) {
@@ -45,7 +45,7 @@ void controllLoop() {
 
     while (rclcpp::ok()) {
 
-        std::vector <std::string> input = getTerminalInput();
+        std::vector<std::string> input = getTerminalInput();
         if (input.size() == 0) {
             continue;
         }
@@ -64,7 +64,7 @@ void controllLoop() {
                 RCLCPP_ERROR(logger, "TCP alignment failed");
             }
         }
-            // Select Tool
+        // Select Tool
         else if (input[0] == "select_tool") {
             auto request = std::make_shared<robot_teleoperation_interface::srv::SelectTool::Request>();
             request->tcp_id = std::stoi(input[1]);
@@ -80,7 +80,7 @@ void controllLoop() {
 
         }
 
-            // Teach current Point
+        // Teach current Point
         else if (input[0] == "teach_point") {
             auto request = std::make_shared<robot_teleoperation_interface::srv::TeachPoint::Request>();
             // Check if the name is given
@@ -98,7 +98,7 @@ void controllLoop() {
             }
         }
 
-            // Tool open Close
+        // Tool open Close
         else if (input[0] == "tool") {
             auto request = std::make_shared<robot_teleoperation_interface::srv::Tool::Request>();
             // Input is open or close
@@ -124,7 +124,7 @@ void controllLoop() {
             }
         }
 
-            // Move Robot
+        // Move Robot
         else if (input[0] == "move_robot") {
             auto request = std::make_shared<robot_teleoperation_interface::srv::MoveRobot::Request>();
             // Second argument is the frame joint or world
@@ -186,7 +186,6 @@ void controllLoop() {
                         request->axis.push_back(5);
                     }
                     request->data.push_back(value);
-
                 }
 
             } else {
@@ -215,10 +214,7 @@ void controllLoop() {
         } else {
             RCLCPP_ERROR(logger, "Unknown command");
         }
-
-
     }
-
 }
 
 

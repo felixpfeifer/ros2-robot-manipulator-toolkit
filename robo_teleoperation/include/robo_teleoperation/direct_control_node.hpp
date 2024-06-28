@@ -9,11 +9,11 @@
 
 // Services
 #include "robot_teleoperation_interface/srv/allign_tcp.hpp"
-#include "robot_teleoperation_interface/srv/select_tool.hpp"
+#include "robot_teleoperation_interface/srv/move_point.hpp"
 #include "robot_teleoperation_interface/srv/move_robot.hpp"
+#include "robot_teleoperation_interface/srv/select_tool.hpp"
 #include "robot_teleoperation_interface/srv/teach_point.hpp"
 #include "robot_teleoperation_interface/srv/tool.hpp"
-#include "robot_teleoperation_interface/srv/move_point.hpp"
 
 // Logger
 rclcpp::Logger logger = rclcpp::get_logger("direct_control_node");
@@ -39,4 +39,4 @@ void controllLoop();
 int main(int argc, char *argv[]);
 
 
-#endif //ROBO_TELEOPERATION_DIRECT_CONTROL_NODE_HPP
+#endif//ROBO_TELEOPERATION_DIRECT_CONTROL_NODE_HPP

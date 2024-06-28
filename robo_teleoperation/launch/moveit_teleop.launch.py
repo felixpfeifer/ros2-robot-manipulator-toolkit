@@ -11,9 +11,11 @@ from launch.events import Shutdown
 from launch.substitutions import (EnvironmentVariable, FindExecutable,
                                   LaunchConfiguration, LocalSubstitution,
                                   PythonExpression)
+
+
 def generate_launch_description():
     moveit_config = (
-        MoveItConfigsBuilder("robot",package_name="melfa_assista_moveit_config")
+        MoveItConfigsBuilder("robot", package_name="melfa_assista_moveit_config")
         .robot_description(file_path="config/robot.urdf.xacro")
         .robot_description_semantic(file_path="config/robot.srdf")
         .trajectory_execution(file_path="config/moveit_controllers.yaml")
@@ -48,7 +50,8 @@ def generate_launch_description():
 
     return LaunchDescription(
         [
-            move_group_node,
-            start_teleop_node_after_Moviet,
+            #move_group_node,
+            teleop_node,
+            #start_teleop_node_after_Moviet,
         ]
     )

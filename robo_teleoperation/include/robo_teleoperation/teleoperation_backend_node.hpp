@@ -10,63 +10,63 @@
 #ifndef ROBO_TELEOPERATION_TELEOPERATION_BACKEND_NODE_HPP
 #define ROBO_TELEOPERATION_TELEOPERATION_BACKEND_NODE_HPP
 
+#include "robot_teleoperation_interface/msg/teleop.hpp"
 #include <moveit/move_group_interface/move_group_interface.h>
+#include <moveit/planning_interface/planning_interface.h>
+#include <moveit/planning_interface/planning_request.h>
+#include <moveit/planning_interface/planning_response.h>
 #include <moveit/planning_scene/planning_scene.h>
-#include <moveit/robot_state/robot_state.h>
+#include <moveit/planning_scene_interface/planning_scene_interface.h>
+#include <moveit/planning_scene_monitor/planning_scene_monitor.h>
 #include <moveit/robot_model/robot_model.h>
 #include <moveit/robot_model_loader/robot_model_loader.h>
-#include <moveit/planning_scene_monitor/planning_scene_monitor.h>
-#include <moveit/planning_scene_interface/planning_scene_interface.h>
-#include <moveit_msgs/srv/apply_planning_scene.hpp>
-#include <moveit_msgs/msg/orientation_constraint.hpp>
+#include <moveit/robot_state/robot_state.h>
 #include <moveit/trajectory_processing/time_optimal_trajectory_generation.h>
-#include <tf2/LinearMath/Quaternion.h>
-#include <tf2/LinearMath/Matrix3x3.h>
-#include <tf2_geometry_msgs/tf2_geometry_msgs.h>
-#include "robot_teleoperation_interface/msg/teleop.hpp"
+#include <moveit_msgs/msg/orientation_constraint.hpp>
+#include <moveit_msgs/srv/apply_planning_scene.hpp>
+#include <random>
+#include <rclcpp/node.hpp>
 #include <rclcpp/rclcpp.hpp>
 #include <rclcpp_action/rclcpp_action.hpp>
-#include <rclcpp/node.hpp>
-#include <random>
-#include <moveit/planning_interface/planning_response.h>
-#include <moveit/planning_interface/planning_request.h>
-#include <moveit/planning_interface/planning_interface.h>
+#include <tf2/LinearMath/Matrix3x3.h>
+#include <tf2/LinearMath/Quaternion.h>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.h>
 
 // Services
 #include "robot_teleoperation_interface/srv/allign_tcp.hpp"
-#include "robot_teleoperation_interface/srv/select_tool.hpp"
-#include "robot_teleoperation_interface/srv/move_robot.hpp"
-#include "robot_teleoperation_interface/srv/move_point.hpp"
 #include "robot_teleoperation_interface/srv/hand2_eye.hpp"
+#include "robot_teleoperation_interface/srv/move_point.hpp"
+#include "robot_teleoperation_interface/srv/move_robot.hpp"
+#include "robot_teleoperation_interface/srv/select_tool.hpp"
 #include "robot_teleoperation_interface/srv/teach_point.hpp"
 #include "robot_teleoperation_interface/srv/tool.hpp"
 
 
-#include "std_msgs/msg/float64_multi_array.hpp"
 #include "geometry_msgs/msg/twist.hpp"
+#include "std_msgs/msg/float64_multi_array.hpp"
 
-#include <rclcpp/rclcpp.hpp>
-#include <rclcpp/node.hpp>
-#include <moveit/planning_scene_interface/planning_scene_interface.h>
-#include <geometric_shapes/shape_operations.h>
 #include <geometric_shapes/mesh_operations.h>
+#include <geometric_shapes/shape_operations.h>
+#include <moveit/planning_scene_interface/planning_scene_interface.h>
 #include <moveit_msgs/msg/collision_object.hpp>
+#include <rclcpp/node.hpp>
+#include <rclcpp/rclcpp.hpp>
 
 // MongoDB
-#include <mongocxx/client.hpp>
-#include <mongocxx/instance.hpp>
-#include <mongocxx/uri.hpp>
-#include <mongocxx/stdx.hpp>
-#include <mongocxx/exception/exception.hpp>
-#include <mongocxx/exception/logic_error.hpp>
-#include <mongocxx/exception/query_exception.hpp>
-#include <mongocxx/exception/bulk_write_exception.hpp>
-#include <mongocxx/exception/gridfs_exception.hpp>
-#include <bsoncxx/json.hpp>
-#include <mongocxx/pipeline.hpp>
 #include <bsoncxx/builder/stream/document.hpp>
 #include <bsoncxx/builder/stream/helpers.hpp>
+#include <bsoncxx/json.hpp>
 #include <iostream>
+#include <mongocxx/client.hpp>
+#include <mongocxx/exception/bulk_write_exception.hpp>
+#include <mongocxx/exception/exception.hpp>
+#include <mongocxx/exception/gridfs_exception.hpp>
+#include <mongocxx/exception/logic_error.hpp>
+#include <mongocxx/exception/query_exception.hpp>
+#include <mongocxx/instance.hpp>
+#include <mongocxx/pipeline.hpp>
+#include <mongocxx/stdx.hpp>
+#include <mongocxx/uri.hpp>
 
 #include <chrono>
 #include <memory>
@@ -131,8 +131,9 @@ namespace robo_teleoperation {
          * Saves the current pose of the robot to the MongoDB
          * @param pose the current pose of the robot
          * @param name the name of the pose
+         * @return true if the pose was saved successfully
          */
-        void safePosetoMongoDB(geometry_msgs::msg::Pose pose, std::string name);
+        bool safePosetoMongoDB(geometry_msgs::msg::Pose pose, std::string name);
 
         // Services
 
@@ -152,24 +153,42 @@ namespace robo_teleoperation {
         void allignTCPService(const std::shared_ptr<robot_teleoperation_interface::srv::AllignTCP::Request> request,
                               std::shared_ptr<robot_teleoperation_interface::srv::AllignTCP::Response> response);
 
-        void hand2EyeService(const std::shared_ptr<robot_teleoperation_interface::srv::Hand2Eye::Request> request,
-                             std::shared_ptr<robot_teleoperation_interface::srv::Hand2Eye::Response> response);
-
+        /**
+         * Function to Teach a Point to the robot it saved to the mongodb
+         * @param request
+         * @param response
+         */
         void teachPointService(const std::shared_ptr<robot_teleoperation_interface::srv::TeachPoint::Request> request,
                                std::shared_ptr<robot_teleoperation_interface::srv::TeachPoint::Response> response);
 
+        /**
+         * Function to open/close the gripper
+         * @param request
+         * @param response
+         */
         void toolService(const std::shared_ptr<robot_teleoperation_interface::srv::Tool::Request> request,
                          std::shared_ptr<robot_teleoperation_interface::srv::Tool::Response> response);
 
+        /**
+         * Function to move the robot to a specified point from the MongoDB database
+         * @param request
+         * @param response
+         */
         void movePointService(const std::shared_ptr<robot_teleoperation_interface::srv::MovePoint::Request> request,
                               std::shared_ptr<robot_teleoperation_interface::srv::MovePoint::Response> response);
 
+        /*
+         * Function to create the Planning Scene for the robot
+         * Adds the table and the robot to the planning scene
+         *
+         */
         void setupPlanningScene();
 
-        // Subcriber the twist message
-        void twistCallback(const geometry_msgs::msg::Twist::SharedPtr msg);
+        /**
+         * Function to print the current pose of the robot
+         */
+        void printCurrentPose();
 
-        rclcpp::Subscription<geometry_msgs::msg::Twist>::SharedPtr twist_subscriber;
 
     private:
         /**
@@ -220,6 +239,9 @@ namespace robo_teleoperation {
         rclcpp::Service<robot_teleoperation_interface::srv::TeachPoint>::SharedPtr teach_point_service;
         rclcpp::Service<robot_teleoperation_interface::srv::Tool>::SharedPtr tool_service;
 
+        // Publisher for the planning_scene_publisher
+        rclcpp::Publisher<moveit_msgs::msg::PlanningScene>::SharedPtr planning_scene_publisher;
+
         // Publisher for the GPIO Message of the Hardware Interface
 
         rclcpp::Publisher<CmdType>::SharedPtr gpio_publisher;
@@ -249,11 +271,33 @@ namespace robo_teleoperation {
         mongocxx::client client{mongocxx::uri{}};
         mongocxx::database db = client["Seminararbeit"];
         mongocxx::collection poses = db["Poses"];
+        mongocxx::collection calib_poses = db["calibration_poses"];
+        mongocxx::collection collision_objects = db["collision_objects"];
 
         // Gripper State
         bool gripper_open;
 
+        // Collision Objects in the Scene
+        bool addBox();
 
+        bool addPLT();
+
+        bool addCalibrationPlate();
+
+        /**
+         * Function to get the Pose of the Object from the given Points
+         * @param id : The ID of the Object
+         * @param points : The Points of the Object Corners
+         * @param object : The Moveit Object
+         * @return The Pose of the Object
+         */
+        geometry_msgs::msg::Pose getObjectPose(int id, shapes::Mesh *mesh);
+
+        // Function to get the corners Point of the Objects nearest to the robot
+        std::vector<geometry_msgs::msg::Point> getColisionCorners(int id);
+
+        // Function to get the size and width of a STL File for the Collision Object
+        std::vector<double> getSTLSize(shapes::Mesh *mesh);
     };
-}
-#endif //ROBO_TELEOPERATION_TELEOPERATION_BACKEND_NODE_HPP
+}// namespace robo_teleoperation
+#endif//ROBO_TELEOPERATION_TELEOPERATION_BACKEND_NODE_HPP
