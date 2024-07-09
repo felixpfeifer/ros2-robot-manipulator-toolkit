@@ -3,7 +3,7 @@
  * Description: Backend node for the teleoperation interface
  * Author:      Felix Pfeifer
  * Email:       fpfeifer@stud.hs-heilbronn.de
- * Version:     2.1
+ * Version:     3.0
  * License:     MIT License
  ******************************************************************************/
 
@@ -11,12 +11,19 @@
 
 
 namespace robo_teleoperation {
+
     using namespace std::chrono_literals;
 
     TeleoperationBackendNode::TeleoperationBackendNode() : rclcpp::Node("TeleOpBackendNode") {
         rclcpp::NodeOptions node_options;
         node_options.automatically_declare_parameters_from_overrides(true);
+
+
         node = rclcpp::Node::make_shared("move_group_node", node_options);
+
+        // Initialize TF2 buffer and listener
+        tf_buffer_ = std::make_shared<tf2_ros::Buffer>(node->get_clock());
+        tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
 
         executor_.add_node(node);
         std::thread([&]() { executor_.spin(); }).detach();
@@ -48,7 +55,7 @@ namespace robo_teleoperation {
                                   std::placeholders::_2));
 
         // GPIO Publisher and Subscriber
-        gpio_publisher = this->create_publisher<CmdType>("/gpio_controller/commands", 10);
+        gpio_publisher = this->create_publisher<floatarray>("/gpio_controller/commands", 10);
         gpio_subscriber = this->create_subscription<CmdType>(
                 "/gpio_controller/inputs", 10,
                 std::bind(&TeleoperationBackendNode::gpioCallback, this, std::placeholders::_1));
@@ -56,17 +63,16 @@ namespace robo_teleoperation {
         // Use to move the Robot the OMPL Planner with the RRTConnect Algorithm
         moveGroupInterface->setPlannerId("RRTConnect");
 
-
-        // Create the planning_scene_publisher
-        planning_scene_publisher = this->create_publisher<moveit_msgs::msg::PlanningScene>(
-                "/planning_scene", 10);
-
         RCLCPP_INFO(this->get_logger(), "Teleoperation Backend Node is starting");
+
+
+        planning_scene_publisher_ = this->create_publisher<moveit_msgs::msg::PlanningScene>("planning_scene", 1);
+
+        speed_publisher_ = this->create_publisher<geometry_msgs::msg::TwistStamped>("speed", 10);
+        pose_publisher_ = this->create_publisher<geometry_msgs::msg::PoseStamped>("position", 10);
 
         // Set Joint Constraints to avoid flipping
         setJointConstraints();
-        // Create a Planning Scene
-        setupPlanningScene();
 
         gripper_open = true;
 
@@ -79,6 +85,7 @@ namespace robo_teleoperation {
 
         // Timer that runs every 20ms to get the current state of the robot
         //timer_ = this->create_wall_timer(1s, std::bind(&TeleoperationBackendNode::timer_callback, this));
+        timer_ = this->create_wall_timer(100ms, std::bind(&TeleoperationBackendNode::calculateSpeed_Timecallback, this));
 
         // Move to Home Position
         moveNamedPositon("home");
@@ -139,27 +146,48 @@ namespace robo_teleoperation {
             }
         }
         moveGroupInterface->setJointValueTarget(joint_values);
-        moveGroupInterface->move();
+        auto result = moveGroupInterface->move();
+        if (result == moveit::planning_interface::MoveItErrorCode::SUCCESS) {
+            RCLCPP_INFO(this->get_logger(), "Move Successful");
+        } else {
+            RCLCPP_ERROR(this->get_logger(), "Move Failed");
+            throw std::runtime_error("Move Failed");
+        }
     }
 
     void TeleoperationBackendNode::moveWorldPose(geometry_msgs::msg::Pose pose) {
         RCLCPP_INFO(this->get_logger(), "Move Robot to World Pose");
         moveGroupInterface->setStartState(*moveGroupInterface->getCurrentState());
         moveGroupInterface->setPoseTarget(pose);
-        moveGroupInterface->move();
+        auto result = moveGroupInterface->move();
+        if (result == moveit::planning_interface::MoveItErrorCode::SUCCESS) {
+            RCLCPP_INFO(this->get_logger(), "Move Successful");
+        } else {
+            RCLCPP_ERROR(this->get_logger(), "Move Failed");
+            throw std::runtime_error("Move Failed");
+        }
     }
 
     void TeleoperationBackendNode::moveTCPPose(geometry_msgs::msg::Pose pose) {
         // Moves the Robot in the Coordinate System of the End Effector Link
         RCLCPP_INFO(this->get_logger(), "Move Robot to TCP Pose");
-        // Get the current Pose of the End Effector
-        geometry_msgs::msg::PoseStamped current_pose = moveGroupInterface->getCurrentPose();
-        // Set the Current Pose as the Start Pose
-        moveGroupInterface->setStartStateToCurrentState();
-        // Set the Target Pose to the given Pose
-        moveGroupInterface->setPoseTarget(pose);
-        moveGroupInterface->move();
+        // Transform the Pose to the World Coordinate System
+        if (!transformPose(pose, false)) {
+            RCLCPP_ERROR(this->get_logger(), "Failed to transform Pose");
+            return;
+        }
+        moveGroupInterface->setStartState(*moveGroupInterface->getCurrentState());
+        auto result = moveGroupInterface->setPoseTarget(pose);
+
+        // Move the Robot to the Pose but check if the move has been successful
+        if (result == moveit::planning_interface::MoveItErrorCode::SUCCESS) {
+            RCLCPP_INFO(this->get_logger(), "Move Successful");
+        } else {
+            RCLCPP_ERROR(this->get_logger(), "Move Failed");
+            throw std::runtime_error("Move Failed");
+        }
     }
+
 
     void TeleoperationBackendNode::moveRandom() {
         RCLCPP_INFO(this->get_logger(), "Move Robot to Random z Position");
@@ -434,7 +462,15 @@ namespace robo_teleoperation {
             for (int i = 0; i < joint_values.size(); ++i) {
                 RCLCPP_INFO(this->get_logger(), "Joint %d: %f", i, joint_values[i]);
             }
-            moveJoint(joint_values, false);
+
+            try {
+                moveJoint(joint_values, false);
+                response->success = true;
+            } catch (std::runtime_error &e) {
+                RCLCPP_ERROR(this->get_logger(), "Failed to move Robot");
+                response->success = false;
+                return;
+            }
 
         } else if (frame == 1) {// Move World
             geometry_msgs::msg::Pose pose = moveGroupInterface->getCurrentPose().pose;
@@ -477,7 +513,62 @@ namespace robo_teleoperation {
             RCLCPP_INFO(this->get_logger(), "New Pose: x: %f, y: %f, z: %f, qx: %f, qy: %f, qz: %f, qw: %f",
                         pose.position.x, pose.position.y, pose.position.z, pose.orientation.x, pose.orientation.y,
                         pose.orientation.z, pose.orientation.w);
-            moveWorldPose(pose);
+            try {
+                moveWorldPose(pose);
+                response->success = true;
+            } catch (std::runtime_error &e) {
+                RCLCPP_ERROR(this->get_logger(), "Failed to move Robot");
+                response->success = false;
+                return;
+            }
+        } else if (frame == 2) {
+            // Move the Robot in the Tool Frame
+            // Get the current Pose of the End Effector
+            geometry_msgs::msg::PoseStamped current_pose = moveGroupInterface->getCurrentPose();
+            // Convert the Pose to the Tool Frame
+            if (!transformPose(current_pose.pose, true)) {
+                RCLCPP_ERROR(this->get_logger(), "Failed to transform Pose");
+                response->success = false;
+                return;
+            }
+            // Add the values of the array to the current Pose
+            for (int i = 0; i < request->data.size(); ++i) {
+                int id = request->axis.at(i);
+                switch (id) {
+                    case 0:
+                        current_pose.pose.position.x += request->data.at(i);
+                        break;
+                    case 1:
+                        current_pose.pose.position.y += request->data.at(i);
+                        break;
+                    case 2:
+                        current_pose.pose.position.z += request->data.at(i);
+                        break;
+                    case 3:
+                        changeOrientation(current_pose.pose, request->data.at(i), 0);
+                        break;
+                    case 4:
+                        changeOrientation(current_pose.pose, request->data.at(i), 1);
+                        break;
+                    case 5:
+                        changeOrientation(current_pose.pose, request->data.at(i), 2);
+                        break;
+                    default:
+                        RCLCPP_ERROR(this->get_logger(), "Invalid Axis ID");
+                }
+            }
+            try {
+                moveTCPPose(current_pose.pose);
+                response->success = true;
+            } catch (std::runtime_error &e) {
+                RCLCPP_ERROR(this->get_logger(), "Failed to move Robot");
+                response->success = false;
+                return;
+            }
+        } else {
+            RCLCPP_ERROR(this->get_logger(), "Invalid Frame ID");
+            response->success = false;
+            return;
         }
     }
 
@@ -535,6 +626,14 @@ namespace robo_teleoperation {
             const std::shared_ptr<robot_teleoperation_interface::srv::TeachPoint::Request> request,
             std::shared_ptr<robot_teleoperation_interface::srv::TeachPoint::Response> response) {
         RCLCPP_INFO(this->get_logger(), "Teach Point Service");
+        // Check if the Pose Name is home or
+        std::regex pattern("home", std::regex_constants::icase);
+        if (std::regex_match(request->name, pattern)) {
+            std::cout << "The word is 'home' (case insensitive match)." << std::endl;
+            response->success = false;
+            response->message = "The word is 'home' (case insensitive match).";
+            return;
+        }
         auto pose = moveGroupInterface->getCurrentPose().pose;
         response->success = safePosetoMongoDB(pose, request->name);
     }
@@ -545,8 +644,9 @@ namespace robo_teleoperation {
         RCLCPP_INFO(this->get_logger(), "Tool Service");
         // Get the Current Pose and display
         printCurrentPose();
-        CmdType cmd;
+        floatarray cmd;
         if (request->close) {
+            // Close the Gripper by setting the first GPIO to One
             cmd.data.push_back(1.0);
         } else {
             // Open the Gripper by setting the first GPIO to Zero
@@ -558,11 +658,12 @@ namespace robo_teleoperation {
     }
 
     void TeleoperationBackendNode::gpioCallback(const CmdType::SharedPtr msg) {
-        RCLCPP_INFO(this->get_logger(), "GPIO Callback");
+        //RCLCPP_INFO(this->get_logger(), "GPIO Callback");
+        // Limit the Callback execution to 1 Hz
         // Check if the GPIO is not empty
-        if (msg->data.size() > 0) {
+        if (msg->values.size() > 0) {
             // Check if the GPIO is the Homing GPIO
-            if (msg->data[0] > 1.0) {
+            if (msg->values[0] > 1.0) {
                 gripper_open = true;
             } else {
                 gripper_open = false;
@@ -575,6 +676,23 @@ namespace robo_teleoperation {
             std::shared_ptr<robot_teleoperation_interface::srv::MovePoint::Response> response) {
         RCLCPP_INFO(this->get_logger(), "Move Point Service");
         RCLCPP_INFO(this->get_logger(), "Move Robot to Point: %s", request->point_name.c_str());
+
+        // Check if point is named home
+        if (request->point_name == "home") {
+            homing = true;
+            moveGroupInterface->setNamedTarget("home");
+            auto result = moveGroupInterface->move();
+            if  (result == moveit::planning_interface::MoveItErrorCode::SUCCESS) {
+                RCLCPP_INFO(this->get_logger(), "Move Successful");
+                response->success = true;
+            } else {
+                RCLCPP_ERROR(this->get_logger(), "Move Failed");
+                response->success = false;
+
+            }
+            return;
+        }
+
         // Get the Pose from the MongoDB
         auto filter = bsoncxx::builder::stream::document{} << "name" << request->point_name
                                                            << bsoncxx::builder::stream::finalize;
@@ -609,263 +727,6 @@ namespace robo_teleoperation {
         }
     }
 
-    void TeleoperationBackendNode::setupPlanningScene() {
-        // Add a Collision Plane under the Robot to avoid collision with the ground
-        moveit_msgs::msg::CollisionObject collision_object;
-        collision_object.header.frame_id = moveGroupInterface->getPlanningFrame();
-        collision_object.id = "ground_plane";
-
-        // Define the plane dimensions (in meters)
-        shape_msgs::msg::SolidPrimitive primitive;
-        primitive.type = primitive.BOX;
-        primitive.dimensions.resize(3);
-        primitive.dimensions[0] = 10.0;// length
-        primitive.dimensions[1] = 10.0;// width
-        primitive.dimensions[2] = 0.01;// height
-
-        // Define the pose of the plane (relative to the planning frame)
-        geometry_msgs::msg::Pose plane_pose;
-        plane_pose.orientation.w = 1.0;
-        plane_pose.position.z = -0.005;// half of the height
-
-        // Add the primitive and pose to the collision object
-        collision_object.primitives.push_back(primitive);
-        collision_object.primitive_poses.push_back(plane_pose);
-        collision_object.operation = collision_object.ADD;
-
-        // Create a vector of collision objects
-        std::vector<moveit_msgs::msg::CollisionObject> collision_objects;
-        collision_objects.push_back(collision_object);
-
-        // Publish the collision objects
-        planning_scene_interface.addCollisionObjects(collision_objects);
-
-        RCLCPP_INFO(this->get_logger(), "Added Ground Plane to Planning Scene");
-        addPLT();
-        RCLCPP_INFO(this->get_logger(), "Added PLT to Planning Scene");
-        addBox();
-        RCLCPP_INFO(this->get_logger(), "Added Box to Planning Scene");
-        addCalibrationPlate();
-        RCLCPP_INFO(this->get_logger(), "Added Calibration Plate to Planning Scene");
-    }
-
-    bool TeleoperationBackendNode::addPLT() {
-        // object_id = 1
-        // Add the Calibration Plate to the Planning Scene
-        moveit_msgs::msg::CollisionObject collision_object;
-        collision_object.header.frame_id = moveGroupInterface->getPlanningFrame();
-        collision_object.id = "plt";
-        shapes::Shape *plt = shapes::createMeshFromResource(
-                "package://robo_teleoperation/meshes/palette.stl");
-        RCLCPP_INFO(this->get_logger(), "Loaded Mesh");
-        shape_msgs::msg::Mesh mesh;
-        shapes::ShapeMsg mesh_msg;
-        shapes::constructMsgFromShape(plt, mesh_msg);
-        mesh = boost::get<shape_msgs::msg::Mesh>(mesh_msg);
-        collision_object.meshes.push_back(mesh);
-        geometry_msgs::msg::Pose plt_pose;
-        shapes::Mesh *meshet = static_cast<shapes::Mesh *>(plt);
-        plt_pose = getObjectPose(1, meshet);
-        RCLCPP_INFO(this->get_logger(), "Got Pose");
-        collision_object.mesh_poses.push_back(plt_pose);
-        collision_object.operation = collision_object.ADD;
-        std::vector<moveit_msgs::msg::CollisionObject> collision_objectsPLT;
-        collision_objectsPLT.push_back(collision_object);
-        planning_scene_interface.addCollisionObjects(collision_objectsPLT);
-        return true;
-    }
-
-    bool TeleoperationBackendNode::addBox() {
-        // object_id = 2
-        // Add the Box to the Planning Scene
-        moveit_msgs::msg::CollisionObject collision_object;
-        collision_object.header.frame_id = moveGroupInterface->getPlanningFrame();
-        collision_object.id = "kiste";
-        shapes::Shape *plt = shapes::createMeshFromResource(
-                "package://robo_teleoperation/meshes/kiste.stl");
-
-        shapes::Mesh *meshet = static_cast<shapes::Mesh *>(plt);
-        shape_msgs::msg::Mesh mesh;
-        shapes::ShapeMsg mesh_msg;
-        shapes::constructMsgFromShape(plt, mesh_msg);
-        mesh = boost::get<shape_msgs::msg::Mesh>(mesh_msg);
-        collision_object.meshes.push_back(mesh);
-        geometry_msgs::msg::Pose plt_pose;
-        plt_pose = getObjectPose(3, meshet);
-        collision_object.mesh_poses.push_back(plt_pose);
-        collision_object.operation = collision_object.ADD;
-        std::vector<moveit_msgs::msg::CollisionObject> collision_objectsPLT;
-        collision_objectsPLT.push_back(collision_object);
-        planning_scene_interface.addCollisionObjects(collision_objectsPLT);
-        return true;
-    }
-
-    bool TeleoperationBackendNode::addCalibrationPlate() {
-        // object_id = 2
-        // Add the Plate to the Planning Scene
-        moveit_msgs::msg::CollisionObject collision_object;
-        collision_object.header.frame_id = moveGroupInterface->getPlanningFrame();
-        collision_object.id = "platte";
-        shapes::Shape *plt = shapes::createMeshFromResource(
-                "package://robo_teleoperation/meshes/kalibierplatte.stl");
-        shape_msgs::msg::Mesh mesh;
-        shapes::ShapeMsg mesh_msg;
-        shapes::constructMsgFromShape(plt, mesh_msg);
-        mesh = boost::get<shape_msgs::msg::Mesh>(mesh_msg);
-        collision_object.meshes.push_back(mesh);
-        geometry_msgs::msg::Pose plt_pose;
-        shapes::Mesh *meshet = static_cast<shapes::Mesh *>(plt);
-        plt_pose = getObjectPose(2, meshet);
-        collision_object.mesh_poses.push_back(plt_pose);
-        collision_object.operation = collision_object.ADD;
-        std::vector<moveit_msgs::msg::CollisionObject> collision_objectsPLT;
-        collision_objectsPLT.push_back(collision_object);
-        planning_scene_interface.addCollisionObjects(collision_objectsPLT);
-        return true;
-    }
-
-
-    std::vector<geometry_msgs::msg::Point> TeleoperationBackendNode::getColisionCorners(int id) {
-        std::vector<geometry_msgs::msg::Point> point_list;
-        std::vector<int> order;
-        // resize the vector to 2
-        // Load the Collision Object from the MongoDB DB with collection collision_objects
-        // Withh the colision "object_id"
-        auto filter = bsoncxx::builder::stream::document{} << "object_id" << id
-                                                           << bsoncxx::builder::stream::finalize;
-        RCLCPP_INFO(this->get_logger(), "Get Collision Object with ID: %d", id);
-        // Find all Points of the Collision Object
-        auto result = collision_objects.find(filter.view());
-        RCLCPP_INFO(this->get_logger(), "Found Collision Object with ID: %d", id);
-        // Check if the cursor is not empty and process the results
-        for (auto &&doc: result) {
-            // Parse the BSON document to extract the points
-            // In the Document is a var point_number with the number of points
-            // Get the number of the point
-            int point_number = doc["point_number"].get_int32();
-
-            if (doc["points"]) {
-                auto points = doc["points"].get_array().value;
-                double x = points[0].get_double();
-                double y = points[1].get_double();
-                double z = points[2].get_double();
-                // Convert to a Point Message
-                geometry_msgs::msg::Point p;
-                p.x = x;
-                p.y = y;
-                p.z = z;
-                point_list.push_back(p);
-                order.push_back(point_number);
-                // Do something with the point (e.g., log or use in collision object)
-                RCLCPP_INFO(this->get_logger(), "Point position: [x: %f, y: %f, z: %f]", x, y, z);
-            }
-        }
-        // Sort the Points after the id in the order vector
-        std::vector<geometry_msgs::msg::Point> sorted_points;
-        if (order[0] < order[1]) {
-            sorted_points.push_back(point_list[0]);
-            sorted_points.push_back(point_list[1]);
-        } else {
-            sorted_points.push_back(point_list[1]);
-            sorted_points.push_back(point_list[0]);
-        }
-        return sorted_points;
-    }
-
-    geometry_msgs::msg::Pose
-    TeleoperationBackendNode::getObjectPose(int id, shapes::Mesh *mesh) {
-
-        // Pose of the Object
-        geometry_msgs::msg::Pose box_center_pose;
-
-        // Size of the Object
-        std::vector<double> size = getSTLSize(mesh);
-        double length = size[0];
-        double width = size[1];
-        double height = size[2];
-
-
-        // Get the two connected corners of the object
-        std::vector<geometry_msgs::msg::Point> corners = getColisionCorners(id);
-
-        // Ensure we have exactly two points
-        if (corners.size() != 2) {
-            throw std::runtime_error("Expected exactly two corner points");
-        }
-
-        double dx = corners[1].x - corners[0].x;
-        double dy = corners[1].y - corners[0].y;
-        double distance_between_corners = sqrt(dx * dx + dy * dy);
-
-        double edge_length = 0;
-        double other_edge_length = 0;
-        // Determine if the given edge is the width or the length of the object
-        if (abs(distance_between_corners - width) < abs(distance_between_corners - length)) {
-            edge_length = width;
-            other_edge_length = length;
-        } else {
-            edge_length = length;
-            other_edge_length = width;
-        }
-        // Calulate the orientation of the object with angel theta
-        double theta = atan2(dy, dx);
-        // Calculate the normal vector of the given edge with the eigen lib
-        Eigen::Vector2d normal_vector(-dy, dx);
-        normal_vector = normal_vector / distance_between_corners;
-        // Calculate the center of the object
-        Eigen::Vector2d center_offset = (other_edge_length / 2) * normal_vector;
-        auto x_center = (corners[0].x + corners[1].x) / 2 + center_offset[0];
-        auto y_center = (corners[0].y + corners[1].y) / 2 + center_offset[1];
-
-        // Calculate the half-dimensions
-        double half_edge = edge_length / 2;
-        double half_other_edge = other_edge_length / 2;
-
-        // Set the position of the object
-        box_center_pose.position.x = x_center;
-        box_center_pose.position.y = y_center;
-        box_center_pose.position.z = 0;// Assume the object is on the ground
-
-        // Set the orientation of the object
-        tf2::Quaternion q;
-        q.setRPY(0, 0, theta);
-        tf2::convert(q, box_center_pose.orientation);
-
-        return box_center_pose;
-    }
-
-    std::vector<double> TeleoperationBackendNode::getSTLSize(shapes::Mesh *mesh) {
-        std::vector<double> size;
-
-        // Extract the dimensions of the STL model
-        double min_x = std::numeric_limits<double>::max();
-        double max_x = std::numeric_limits<double>::min();
-        double min_y = std::numeric_limits<double>::max();
-        double max_y = std::numeric_limits<double>::min();
-        double min_z = std::numeric_limits<double>::max();
-        double max_z = std::numeric_limits<double>::min();
-
-        for (unsigned int i = 0; i < mesh->vertex_count; ++i) {
-            const double *vertex = &mesh->vertices[3 * i];
-            if (vertex[0] < min_x) min_x = vertex[0];
-            if (vertex[0] > max_x) max_x = vertex[0];
-            if (vertex[1] < min_y) min_y = vertex[1];
-            if (vertex[1] > max_y) max_y = vertex[1];
-            if (vertex[2] < min_z) min_z = vertex[2];
-            if (vertex[2] > max_z) max_z = vertex[2];
-        }
-
-        double length = max_x - min_x;
-        double width = max_y - min_y;
-        double height = max_z - min_z;
-
-        size.push_back(length);
-        size.push_back(width);
-        size.push_back(height);
-
-        return size;
-    }
-
     void TeleoperationBackendNode::printCurrentPose() {
         // Get the current Pose of the End Effector
         geometry_msgs::msg::PoseStamped current_pose = moveGroupInterface->getCurrentPose();
@@ -875,7 +736,58 @@ namespace robo_teleoperation {
                     current_pose.pose.orientation.w);
     }
 
+    void TeleoperationBackendNode::calculateSpeed_Timecallback() {
+
+        const geometry_msgs::msg::PoseStamped current_pose = moveGroupInterface->getCurrentPose();
+        rclcpp::Time current_time = this->now();
+        if (last_time_.seconds() > 5.0) {
+            double dt = 0.1;// 100ms
+            double dx = current_pose.pose.position.x - last_position_.pose.position.x;
+            double dy = current_pose.pose.position.y - last_position_.pose.position.y;
+            double dz = current_pose.pose.position.z - last_position_.pose.position.z;
+
+            // Convert to mm/s
+            dx *= 1000;
+            dy *= 1000;
+            dz *= 1000;
+
+
+            double linear_speed = sqrt(dx * dx + dy * dy + dz * dz) / dt;
+            RCLCPP_INFO(this->get_logger(), "Linear Speed %f mm/s", linear_speed);
+            geometry_msgs::msg::TwistStamped twist;
+            twist.header.stamp = current_time;
+            twist.twist.linear.x = dx / dt;
+            twist.twist.linear.y = dy / dt;
+            twist.twist.linear.z = dz / dt;
+            speed_publisher_->publish(twist);
+            pose_publisher_->publish(current_pose);
+        }
+
+        last_position_.pose = current_pose.pose;
+        last_time_ = current_time;
+    }
+
+    bool TeleoperationBackendNode::transformPose(geometry_msgs::msg::Pose &pose, bool to_endeffector) {
+        try {
+            std::string target_frame = moveGroupInterface->getEndEffectorLink();
+            std::string base_frame = moveGroupInterface->getPlanningFrame();
+            if (to_endeffector) {
+                std::swap(target_frame, base_frame);
+            }
+            auto transformStamped = tf_buffer_->lookupTransform(target_frame, base_frame, tf2::TimePointZero, tf2::durationFromSec(1.0));
+            geometry_msgs::msg::PoseStamped pose_stamped;
+            pose_stamped.header.frame_id = base_frame;
+            pose_stamped.pose = pose;
+            tf2::doTransform(pose_stamped, pose_stamped, transformStamped);
+            pose = pose_stamped.pose;
+            return true;
+        } catch (tf2::TransformException &ex) {
+            RCLCPP_ERROR(this->get_logger(), "Transform error: %s", ex.what());
+            return false;
+        }
+    }
 }// namespace robo_teleoperation
+// namespace robo_teleoperation
 
 int main(int argc, char *argv[]) {
     rclcpp::init(argc, argv);

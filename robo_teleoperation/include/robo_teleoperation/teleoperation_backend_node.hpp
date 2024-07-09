@@ -1,11 +1,18 @@
 /******************************************************************************
- * Filename:    teleoperation_backend_node.hpp
- * Description: Backend node for the teleoperation interface
- * Author:      Felix Pfeifer
- * Email:       fpfeifer@stud.hs-heilbronn.de
- * Version:     2.1
- * License:     MIT License
- ******************************************************************************/
+* Filename:    teleoperation_backend_node.hpp
+* Description: Backend node for the teleoperation interface. This header file
+*              defines the TeleoperationBackendNode class, which provides
+*              functionalities for moving the robot to specific positions,
+*              handling service requests, and interacting with MongoDB for
+*              storing and retrieving robot poses. It also includes methods
+*              for setting joint constraints, aligning the TCP, and handling
+*              GPIO messages.
+* Author:      Felix Pfeifer
+* Email:       fpfeifer@stud.hs-heilbronn.de
+* Version:     2.1
+* License:     MIT License
+******************************************************************************/
+
 
 #ifndef ROBO_TELEOPERATION_TELEOPERATION_BACKEND_NODE_HPP
 #define ROBO_TELEOPERATION_TELEOPERATION_BACKEND_NODE_HPP
@@ -43,14 +50,20 @@
 
 
 #include "geometry_msgs/msg/twist.hpp"
+#include "geometry_msgs/msg/twist_stamped.hpp"
+#include "sensor_msgs/msg/joint_state.hpp"
 #include "std_msgs/msg/float64_multi_array.hpp"
 
+#include "control_msgs/msg/interface_value.hpp"
 #include <geometric_shapes/mesh_operations.h>
 #include <geometric_shapes/shape_operations.h>
 #include <moveit/planning_scene_interface/planning_scene_interface.h>
 #include <moveit_msgs/msg/collision_object.hpp>
 #include <rclcpp/node.hpp>
 #include <rclcpp/rclcpp.hpp>
+
+#include <regex>
+
 
 // MongoDB
 #include <bsoncxx/builder/stream/document.hpp>
@@ -74,7 +87,8 @@
 
 namespace robo_teleoperation {
 
-    using CmdType = std_msgs::msg::Float64MultiArray;
+    using CmdType = control_msgs::msg::InterfaceValue;
+    using floatarray = std_msgs::msg::Float64MultiArray;
 
     class TeleoperationBackendNode : public rclcpp::Node {
     public:
@@ -103,13 +117,13 @@ namespace robo_teleoperation {
 
         /**
          * Moves the robot to the specified pose in the World Frame
-         * @param pose
+         * @param pose of the TCP in the World Frame
          */
         void moveWorldPose(geometry_msgs::msg::Pose pose);
 
         /**
          * Moves the robot to the specified pose in the TCP Frame
-         * @param pose
+         * @param pose of the TCP in the TCP Frame
          */
         void moveTCPPose(geometry_msgs::msg::Pose pose);
 
@@ -147,9 +161,19 @@ namespace robo_teleoperation {
                               std::shared_ptr<robot_teleoperation_interface::srv::MoveRobot::Response> response);
 
 
+        /**
+         * Select the TCP of the Robot the Camera TCP or the Gripper TCP
+         * @param request
+         * @param response
+         */
         void selectToolService(const std::shared_ptr<robot_teleoperation_interface::srv::SelectTool::Request> request,
                                std::shared_ptr<robot_teleoperation_interface::srv::SelectTool::Response> response);
 
+        /**
+         * Function to Align the TCP of the Robot with the World Frame
+         * @param request
+         * @param response
+         */
         void allignTCPService(const std::shared_ptr<robot_teleoperation_interface::srv::AllignTCP::Request> request,
                               std::shared_ptr<robot_teleoperation_interface::srv::AllignTCP::Response> response);
 
@@ -177,18 +201,19 @@ namespace robo_teleoperation {
         void movePointService(const std::shared_ptr<robot_teleoperation_interface::srv::MovePoint::Request> request,
                               std::shared_ptr<robot_teleoperation_interface::srv::MovePoint::Response> response);
 
-        /*
-         * Function to create the Planning Scene for the robot
-         * Adds the table and the robot to the planning scene
-         *
-         */
-        void setupPlanningScene();
-
         /**
          * Function to print the current pose of the robot
          */
         void printCurrentPose();
 
+
+        /**
+          * Function to transform the pose from the end effector frame to the world frame
+          * @param pose the pose to be transformed
+          * @param to_endeffector  if true the pose is transformed to the end effector frame else to the world frame
+          * @return true if the pose was transformed successfully
+          */
+        bool transformPose(geometry_msgs::msg::Pose &pose, bool to_endeffector);
 
     private:
         /**
@@ -239,14 +264,20 @@ namespace robo_teleoperation {
         rclcpp::Service<robot_teleoperation_interface::srv::TeachPoint>::SharedPtr teach_point_service;
         rclcpp::Service<robot_teleoperation_interface::srv::Tool>::SharedPtr tool_service;
 
-        // Publisher for the planning_scene_publisher
-        rclcpp::Publisher<moveit_msgs::msg::PlanningScene>::SharedPtr planning_scene_publisher;
+
+        moveit::planning_interface::PlanningSceneInterface planning_scene_interface;
+        moveit_msgs::msg::PlanningScene planning_scene;
+        // Planning Scene
+        rclcpp::Publisher<moveit_msgs::msg::PlanningScene>::SharedPtr planning_scene_publisher_;
 
         // Publisher for the GPIO Message of the Hardware Interface
-
-        rclcpp::Publisher<CmdType>::SharedPtr gpio_publisher;
+        rclcpp::Publisher<floatarray>::SharedPtr gpio_publisher;
         rclcpp::Subscription<CmdType>::SharedPtr gpio_subscriber;
 
+        /**
+         * Callback function for the GPIO Subscriber
+         * @param msg the GPIO message
+         */
         void gpioCallback(const CmdType::SharedPtr msg);
 
 
@@ -263,41 +294,39 @@ namespace robo_teleoperation {
 
         bool homing;
 
-        // Planning Scene
-        moveit::planning_interface::PlanningSceneInterface planning_scene_interface;
-
         // MongoDB
         mongocxx::instance instance{};
         mongocxx::client client{mongocxx::uri{}};
         mongocxx::database db = client["Seminararbeit"];
         mongocxx::collection poses = db["Poses"];
         mongocxx::collection calib_poses = db["calibration_poses"];
-        mongocxx::collection collision_objects = db["collision_objects"];
 
         // Gripper State
         bool gripper_open;
 
-        // Collision Objects in the Scene
-        bool addBox();
-
-        bool addPLT();
-
-        bool addCalibrationPlate();
-
         /**
-         * Function to get the Pose of the Object from the given Points
-         * @param id : The ID of the Object
-         * @param points : The Points of the Object Corners
-         * @param object : The Moveit Object
-         * @return The Pose of the Object
+         * Function to calculate speed of the end effector as a callback of Joint_States
+         * @frequency : The frequency of 100Hz
+         * @publish a TwistStamped message with the speed of the end effector
          */
-        geometry_msgs::msg::Pose getObjectPose(int id, shapes::Mesh *mesh);
+        void calculateSpeed_Timecallback();
 
-        // Function to get the corners Point of the Objects nearest to the robot
-        std::vector<geometry_msgs::msg::Point> getColisionCorners(int id);
+        // Last Pose of the eeframe
+        geometry_msgs::msg::PoseStamped last_position_;
+        // Publisher for the TwistStamped message
+        rclcpp::Publisher<geometry_msgs::msg::TwistStamped>::SharedPtr speed_publisher_;
+        // Publisher for the PoseStamped message
+        rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr pose_publisher_;
 
-        // Function to get the size and width of a STL File for the Collision Object
-        std::vector<double> getSTLSize(shapes::Mesh *mesh);
+        // Last time initialized with 0
+        rclcpp::Time last_time_ = rclcpp::Time(0, 0);
+
+        // Subscriper of joint_states
+        rclcpp::Subscription<sensor_msgs::msg::JointState>::SharedPtr joint_state_subscriber_;
+
+        // Variables for the TCP Movement in the EndEffector Frame
+        std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
+        std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
     };
 }// namespace robo_teleoperation
 #endif//ROBO_TELEOPERATION_TELEOPERATION_BACKEND_NODE_HPP

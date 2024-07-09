@@ -84,6 +84,7 @@ ament_target_dependencies(teleop_controller_node
         "moveit_core"
         "moveit_ros_planning"
         "robot_teleoperation_interface"
+        "control_msgs"
 )
 
 ament_target_dependencies(direct_control_node
@@ -130,10 +131,6 @@ install(TARGETS space_mouse_node
 
 install(DIRECTORY launch
         DESTINATION share/${PROJECT_NAME}/
-)
-
-install(DIRECTORY meshes
-        DESTINATION share//${PROJECT_NAME}/
 )
 
 if (BUILD_TESTING)

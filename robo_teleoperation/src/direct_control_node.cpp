@@ -35,12 +35,12 @@ void controllLoop() {
     // Print the Message for the User
     RCLCPP_INFO(logger, "Welcome to the Direct Control Interface");
     RCLCPP_INFO(logger, "Commands: ");
-    RCLCPP_INFO(logger, "align_tcp");
-    RCLCPP_INFO(logger, "select_tool <tool_id>");
-    RCLCPP_INFO(logger, "teach_point <name>");
+    RCLCPP_INFO(logger, "align");
+    RCLCPP_INFO(logger, "select <tool_id>");
+    RCLCPP_INFO(logger, "teach <name>");
     RCLCPP_INFO(logger, "tool <open/close>");
-    RCLCPP_INFO(logger, "move_robot <joint/world> <values>");
-    RCLCPP_INFO(logger, "move_point <name>");
+    RCLCPP_INFO(logger, "move <joint/world/tool> <values>");
+    RCLCPP_INFO(logger, "point <name>");
     RCLCPP_INFO(logger, "exit");
 
     while (rclcpp::ok()) {
@@ -53,7 +53,7 @@ void controllLoop() {
             break;
         }
         // Align TCP
-        if (input[0] == "align_tcp") {
+        if (input[0] == "align") {
             auto request = std::make_shared<robot_teleoperation_interface::srv::AllignTCP::Request>();
             request->hs_pose = false;
             auto result = align_tcp_client->async_send_request(request);
@@ -65,7 +65,7 @@ void controllLoop() {
             }
         }
         // Select Tool
-        else if (input[0] == "select_tool") {
+        else if (input[0] == "select") {
             auto request = std::make_shared<robot_teleoperation_interface::srv::SelectTool::Request>();
             request->tcp_id = std::stoi(input[1]);
             auto result = select_tool_client->async_send_request(request);
@@ -81,7 +81,7 @@ void controllLoop() {
         }
 
         // Teach current Point
-        else if (input[0] == "teach_point") {
+        else if (input[0] == "teach") {
             auto request = std::make_shared<robot_teleoperation_interface::srv::TeachPoint::Request>();
             // Check if the name is given
             if (input.size() == 1) {
@@ -125,7 +125,7 @@ void controllLoop() {
         }
 
         // Move Robot
-        else if (input[0] == "move_robot") {
+        else if (input[0] == "move") {
             auto request = std::make_shared<robot_teleoperation_interface::srv::MoveRobot::Request>();
             // Second argument is the frame joint or world
             if (input.size() == 1) {
@@ -167,8 +167,8 @@ void controllLoop() {
                     // Get the order of the axis as id lower and upper case
                     if (axis == "X" || axis == "Y" || axis == "Z" || axis == "x" || axis == "y" || axis == "z") {
                         value = value / 1000;
-                    } else if (axis == "QX" || axis == "QY" || axis == "QZ" || axis == "qx" || axis == "qy" ||
-                               axis == "qz") {
+                    } else if (axis == "RX" || axis == "RY" || axis == "RZ" || axis == "rx" || axis == "ry" ||
+                               axis == "rz") {
                         value = value * M_PI / 180;
                     }
 
@@ -178,24 +178,66 @@ void controllLoop() {
                         request->axis.push_back(1);
                     } else if (axis == "Z" || axis == "z") {
                         request->axis.push_back(2);
-                    } else if (axis == "QX" || axis == "qx") {
+                    } else if (axis == "RX" || axis == "rx") {
                         request->axis.push_back(3);
-                    } else if (axis == "QY" || axis == "qy") {
+                    } else if (axis == "RY" || axis == "ry") {
                         request->axis.push_back(4);
-                    } else if (axis == "QZ" || axis == "qz") {
+                    } else if (axis == "RZ" || axis == "rz") {
                         request->axis.push_back(5);
                     }
                     request->data.push_back(value);
                 }
 
-            } else {
-                RCLCPP_ERROR(logger, "Please provide a frame for the point (joint or world)");
+            }else if( input[1] == "tool") {
+                request->frame_id = 2;
+                // After that a map of the joint number and the joint value
+                // Check how many Axis are given
+                if (input.size() == 3) {
+                    RCLCPP_ERROR(logger, "Please provide the pose values");
+                    continue;
+                }
+                // Pair with <X 0.0> <Y 0.0> <Z 0.0> <QX 0.0> <QY 0.0> <QZ 0.0> <QW 0.0>
+                for (int i = 2; i < input.size(); i += 2) {
+                    std::string axis = input[i];
+                    double value = stod(input[i + 1]);
+                    // Convet the QX,QZ,QW to rad and XYZ to m from mm
+                    // Get the order of the axis as id lower and upper case
+                    if (axis == "X" || axis == "Y" || axis == "Z" || axis == "x" || axis == "y" || axis == "z") {
+                        value = value / 1000;
+                    }else if (axis == "RX" || axis == "RY" || axis == "RZ" || axis == "rx" || axis == "ry" ||
+                               axis == "rz") {
+                        value = value * M_PI / 180;
+                    }
+
+                    if (axis == "X" || axis == "x") {
+                        request->axis.push_back(0);
+                    } else if (axis == "Y" || axis == "y") {
+                        request->axis.push_back(1);
+                    } else if (axis == "Z" || axis == "z") {
+                        request->axis.push_back(2);
+                    } else if (axis == "RX" || axis == "rx") {
+                        request->axis.push_back(3);
+                    } else if (axis == "RY" || axis == "ry") {
+                        request->axis.push_back(4);
+                    } else if (axis == "RZ" || axis == "rz") {
+                        request->axis.push_back(5);
+                    }
+                    request->data.push_back(value);
+                }
+            }
+            else {
+                RCLCPP_ERROR(logger, "Please provide a frame for the point (joint, world or tool)");
                 continue;
             }
             // Send the request
             auto result = move_robot_client->async_send_request(request);
             rclcpp::spin_until_future_complete(node, result);
-        } else if (input[0] == "move_point") {
+            if (result.share().get()->success) {
+                RCLCPP_INFO(logger, "Moving robot was successful");
+            } else {
+                RCLCPP_ERROR(logger, "Moving robot failed");
+            }
+        } else if (input[0] == "point") {
 
             // Check if Point name is given
             if (input.size() == 1) {
