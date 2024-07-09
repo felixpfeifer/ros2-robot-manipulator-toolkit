@@ -1,0 +1,7 @@
+planning_scene_spawner:
+  ros__parameters:
+    mongo:
+      url: "mongodb://localhost:27017"
+      database: "Seminararbeit"
+      collection: "collision_objects"
+    planning_frame: "world"

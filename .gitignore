@@ -52,3 +52,7 @@ sensopart_vision_ros2/cmake-build-debug/
 sensopart_vision_ros2/.idea/
 
 build/
+
+planning_scene_spawner/.idea/
+
+planning_scene_spawner/cmake-build-debug/
