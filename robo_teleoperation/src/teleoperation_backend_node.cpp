@@ -78,7 +78,6 @@ namespace robo_teleoperation {
 
         // Print Current Planning Frame
         RCLCPP_INFO(this->get_logger(), "Planning Frame: %s", moveGroupInterface->getPlanningFrame().c_str());
-        setJointConstraints();
 
         // Teleop Controller is ready to receive commands
         RCLCPP_INFO(this->get_logger(), "Teleoperation Backend Node is ready to receive commands");
@@ -90,6 +89,9 @@ namespace robo_teleoperation {
         // Move to Home Position
         moveNamedPositon("home");
         homing = false;
+
+        // At the Start the End Effector is the Gripper
+        switchEndEffector(true);
     }
 
 
@@ -167,28 +169,6 @@ namespace robo_teleoperation {
             throw std::runtime_error("Move Failed");
         }
     }
-
-    void TeleoperationBackendNode::moveTCPPose(geometry_msgs::msg::Pose pose) {
-        // Moves the Robot in the Coordinate System of the End Effector Link
-        RCLCPP_INFO(this->get_logger(), "Move Robot to TCP Pose");
-        // Transform the Pose to the World Coordinate System
-        if (!transformPose(pose, false)) {
-            RCLCPP_ERROR(this->get_logger(), "Failed to transform Pose");
-            return;
-        }
-        moveGroupInterface->setStartState(*moveGroupInterface->getCurrentState());
-        auto result = moveGroupInterface->setPoseTarget(pose);
-
-        // Move the Robot to the Pose but check if the move has been successful
-        if (result == moveit::planning_interface::MoveItErrorCode::SUCCESS) {
-            RCLCPP_INFO(this->get_logger(), "Move Successful");
-        } else {
-            RCLCPP_ERROR(this->get_logger(), "Move Failed");
-            throw std::runtime_error("Move Failed");
-        }
-    }
-
-
     void TeleoperationBackendNode::moveRandom() {
         RCLCPP_INFO(this->get_logger(), "Move Robot to Random z Position");
 
@@ -523,48 +503,13 @@ namespace robo_teleoperation {
             }
         } else if (frame == 2) {
             // Move the Robot in the Tool Frame
-            // Get the current Pose of the End Effector
-            geometry_msgs::msg::PoseStamped current_pose = moveGroupInterface->getCurrentPose();
-            // Convert the Pose to the Tool Frame
-            if (!transformPose(current_pose.pose, true)) {
-                RCLCPP_ERROR(this->get_logger(), "Failed to transform Pose");
-                response->success = false;
-                return;
-            }
-            // Add the values of the array to the current Pose
-            for (int i = 0; i < request->data.size(); ++i) {
-                int id = request->axis.at(i);
-                switch (id) {
-                    case 0:
-                        current_pose.pose.position.x += request->data.at(i);
-                        break;
-                    case 1:
-                        current_pose.pose.position.y += request->data.at(i);
-                        break;
-                    case 2:
-                        current_pose.pose.position.z += request->data.at(i);
-                        break;
-                    case 3:
-                        changeOrientation(current_pose.pose, request->data.at(i), 0);
-                        break;
-                    case 4:
-                        changeOrientation(current_pose.pose, request->data.at(i), 1);
-                        break;
-                    case 5:
-                        changeOrientation(current_pose.pose, request->data.at(i), 2);
-                        break;
-                    default:
-                        RCLCPP_ERROR(this->get_logger(), "Invalid Axis ID");
-                }
-            }
-            try {
-                moveTCPPose(current_pose.pose);
-                response->success = true;
-            } catch (std::runtime_error &e) {
-                RCLCPP_ERROR(this->get_logger(), "Failed to move Robot");
-                response->success = false;
-                return;
-            }
+            std::vector<float> distance = request->data;
+            // Convert the Float Vector to a Double Vector
+            std::vector<double> distance_double(distance.begin(), distance.end());
+            std::vector<int> axis = request->axis;
+            moveTCPPose(distance_double, axis);
+            response->success = true;
+
         } else {
             RCLCPP_ERROR(this->get_logger(), "Invalid Frame ID");
             response->success = false;
@@ -682,13 +627,12 @@ namespace robo_teleoperation {
             homing = true;
             moveGroupInterface->setNamedTarget("home");
             auto result = moveGroupInterface->move();
-            if  (result == moveit::planning_interface::MoveItErrorCode::SUCCESS) {
+            if (result == moveit::planning_interface::MoveItErrorCode::SUCCESS) {
                 RCLCPP_INFO(this->get_logger(), "Move Successful");
                 response->success = true;
             } else {
                 RCLCPP_ERROR(this->get_logger(), "Move Failed");
                 response->success = false;
-
             }
             return;
         }
@@ -753,7 +697,7 @@ namespace robo_teleoperation {
 
 
             double linear_speed = sqrt(dx * dx + dy * dy + dz * dz) / dt;
-            RCLCPP_INFO(this->get_logger(), "Linear Speed %f mm/s", linear_speed);
+            RCLCPP_DEBUG(get_logger(), "Linear Speed %f mm/s", linear_speed);
             geometry_msgs::msg::TwistStamped twist;
             twist.header.stamp = current_time;
             twist.twist.linear.x = dx / dt;
@@ -766,25 +710,74 @@ namespace robo_teleoperation {
         last_position_.pose = current_pose.pose;
         last_time_ = current_time;
     }
+    void TeleoperationBackendNode::printPose(geometry_msgs::msg::Pose pose) {
+        // Print the Current Pose with the Positon and Orientation in euler angles
+        RCLCPP_INFO(this->get_logger(), "Current TCP-Pose: x: %f, y: %f, z: %f",
+                    pose.position.x, pose.position.y, pose.position.z);
+        // Transform the Orientation to Euler Angles
+        tf2::Quaternion q;
+        tf2::convert(pose.orientation, q);
+        tf2::Matrix3x3 m(q);
+        double roll, pitch, yaw;
+        m.getRPY(roll, pitch, yaw);
+        // Convert the Euler Angles to Degree
+        roll = roll * 180 / M_PI;
+        pitch = pitch * 180 / M_PI;
+        yaw = yaw * 180 / M_PI;
+        RCLCPP_INFO(this->get_logger(), "Moved TCP-Orientation: roll: %f, pitch: %f, yaw: %f", roll, pitch, yaw);
+    }
+    void TeleoperationBackendNode::moveTCPPose(std::vector<double> distance, std::vector<int> axis) {
 
-    bool TeleoperationBackendNode::transformPose(geometry_msgs::msg::Pose &pose, bool to_endeffector) {
+        // Get the current Pose of the End Effector
+        geometry_msgs::msg::PoseStamped current_pose = moveGroupInterface->getCurrentPose();
+        //TODO:  Transform the Pose to the Tool Frame
+        geometry_msgs::msg::PoseStamped tool_pose;
         try {
-            std::string target_frame = moveGroupInterface->getEndEffectorLink();
-            std::string base_frame = moveGroupInterface->getPlanningFrame();
-            if (to_endeffector) {
-                std::swap(target_frame, base_frame);
-            }
-            auto transformStamped = tf_buffer_->lookupTransform(target_frame, base_frame, tf2::TimePointZero, tf2::durationFromSec(1.0));
-            geometry_msgs::msg::PoseStamped pose_stamped;
-            pose_stamped.header.frame_id = base_frame;
-            pose_stamped.pose = pose;
-            tf2::doTransform(pose_stamped, pose_stamped, transformStamped);
-            pose = pose_stamped.pose;
-            return true;
+            // Transform the Pose to the Tool Frame
+            tool_pose = tf_buffer_->transform(current_pose, moveGroupInterface->getEndEffectorLink(), tf2::durationFromSec(1.0));
         } catch (tf2::TransformException &ex) {
-            RCLCPP_ERROR(this->get_logger(), "Transform error: %s", ex.what());
-            return false;
+            RCLCPP_ERROR(this->get_logger(), "Transform to Tool Frame failed: %s", ex.what());
+            return;
         }
+        // Move the Pose in the Tool Frame
+        for (int i = 0; i < distance.size(); ++i) {
+            int axis_id = axis.at(i);
+            switch (axis_id) {
+                case 0:
+                    tool_pose.pose.position.x += distance.at(i);
+                    break;
+                case 1:
+                    tool_pose.pose.position.y += distance.at(i);
+                    break;
+                case 2:
+                    tool_pose.pose.position.z += distance.at(i);
+                    break;
+                case 3:
+                    changeOrientation(tool_pose.pose, distance.at(i), 0);
+                    break;
+                case 4:
+                    changeOrientation(tool_pose.pose, distance.at(i), 1);
+                    break;
+                case 5:
+                    changeOrientation(tool_pose.pose, distance.at(i), 2);
+                    break;
+                default:
+                    RCLCPP_ERROR(this->get_logger(), "Invalid Axis ID");
+            }
+        }
+
+        //TODO: Transform the Pose back to the World Frame
+        geometry_msgs::msg::PoseStamped new_world_pose;
+        try {
+            // Transform the Pose back to the World Frame
+            new_world_pose = tf_buffer_->transform(tool_pose, "world", tf2::durationFromSec(1.0));
+        } catch (tf2::TransformException &ex) {
+            RCLCPP_ERROR(this->get_logger(), "Transform back to World Frame failed: %s", ex.what());
+            return;
+        }
+
+        // Move the Robot to the new Pose
+        moveWorldPose(new_world_pose.pose);
     }
 }// namespace robo_teleoperation
 // namespace robo_teleoperation

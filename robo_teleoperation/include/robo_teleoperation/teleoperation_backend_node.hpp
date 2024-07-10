@@ -121,11 +121,20 @@ namespace robo_teleoperation {
          */
         void moveWorldPose(geometry_msgs::msg::Pose pose);
 
+
         /**
-         * Moves the robot to the specified pose in the TCP Frame
-         * @param pose of the TCP in the TCP Frame
-         */
-        void moveTCPPose(geometry_msgs::msg::Pose pose);
+        * Moves the robot's end effector (EE) frame along a specified axis by a given distance.
+        *
+        * @param distance The distance to move or rotate the end effector. For linear movements, this is in meters. For rotations,
+        * this is in radians. The direction of movement or rotation is determined by the sign of the distance value: positive
+        * values move or rotate the end effector in the positive direction of the specified axis, while negative values move or rotate
+        * it in the opposite direction.
+        * @param axis     The axis along which to move or rotate the end effector. This is specified as an integer value,
+        * where 0 corresponds to the X-axis, 1 corresponds to the Y-axis, and 2 corresponds to the Z-axis for linear movements.
+        * For rotations, 3 corresponds to roll (rotation around the X-axis), 4 corresponds to pitch (rotation around the Y-axis),
+        * and 5 corresponds to yaw (rotation around the Z-axis) of the end effector frame.
+        */
+        void moveTCPPose(std::vector<double> distance, std::vector<int> axis);
 
         /**
          * Moves the robot to a random position in the World Frame
@@ -206,14 +215,7 @@ namespace robo_teleoperation {
          */
         void printCurrentPose();
 
-
-        /**
-          * Function to transform the pose from the end effector frame to the world frame
-          * @param pose the pose to be transformed
-          * @param to_endeffector  if true the pose is transformed to the end effector frame else to the world frame
-          * @return true if the pose was transformed successfully
-          */
-        bool transformPose(geometry_msgs::msg::Pose &pose, bool to_endeffector);
+        void printPose(geometry_msgs::msg::Pose pose);
 
     private:
         /**
