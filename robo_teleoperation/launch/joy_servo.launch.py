@@ -2,16 +2,11 @@ import os
 import launch
 import launch_ros
 from ament_index_python.packages import get_package_share_directory
-from launch_param_builder import ParameterBuilder
 from moveit_configs_utils import MoveItConfigsBuilder
-
 import yaml
 import xacro
 from launch import LaunchDescription
 from launch_ros.actions import Node
-from ament_index_python.packages import get_package_share_directory
-from moveit_configs_utils import MoveItConfigsBuilder
-
 
 def load_file(package_name, file_path):
     package_path = get_package_share_directory(package_name)
@@ -23,16 +18,15 @@ def load_file(package_name, file_path):
     except EnvironmentError:  # parent of IOError, OSError *and* WindowsError where available
         return None
 
-
 def load_yaml(package_name, file_path):
     package_path = get_package_share_directory(package_name)
     absolute_file_path = os.path.join(package_path, file_path)
 
     try:
-        return xacro.load_yaml(absolute_file_path)
+        with open(absolute_file_path, "r") as file:
+            return yaml.safe_load(file)
     except EnvironmentError:  # parent of IOError, OSError *and* WindowsError where available
         return None
-
 
 def generate_launch_description():
     moveit_config = (
@@ -54,8 +48,7 @@ def generate_launch_description():
     if servo_yaml is None:
         raise RuntimeError("Failed to load servo YAML file")
 
-    # Launch a standalone Servo node.
-    # As opposed to a node component, this may be necessary (for example) if Servo is running on a different PC
+    # Launch a standalone Servo node with intra-process communication enabled.
     servo_node = Node(
         package="moveit_servo",
         executable="servo_node_main",
@@ -69,7 +62,7 @@ def generate_launch_description():
     )
 
     # Launch the Xbox controller node
-    xbox_controller_node = launch_ros.actions.Node(
+    xbox_controller_node = Node(
         package="robo_teleoperation",
         executable="xbox_controller",
         parameters=[
@@ -83,12 +76,12 @@ def generate_launch_description():
     )
 
     # Launch the joy node
-    joy_node = launch_ros.actions.Node(
+    joy_node = Node(
         package="joy",
         executable="joy_node",
         name="joy_node",
-
     )
+
 
     return LaunchDescription(
         [
@@ -98,4 +91,5 @@ def generate_launch_description():
         ]
     )
 
-# This script should not be run directly, but by the launch system.
+if __name__ == '__main__':
+    generate_launch_description()

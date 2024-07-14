@@ -48,7 +48,7 @@ void planningSceneSpawnerNode::addPLT() {
     collision_object.header.frame_id = planning_frame_;
     collision_object.id = "plt";
     shapes::Shape *plt = shapes::createMeshFromResource(
-            "package://robo_teleoperation/meshes/palette.stl");
+            "package://planning_scene_spawner/meshes/palette.stl");
     RCLCPP_INFO(this->get_logger(), "Loaded Mesh");
     shape_msgs::msg::Mesh mesh;
     shapes::ShapeMsg mesh_msg;
@@ -72,7 +72,7 @@ void planningSceneSpawnerNode::addBox() {
     collision_object.header.frame_id = planning_frame_;
     collision_object.id = "kiste";
     shapes::Shape *plt = shapes::createMeshFromResource(
-            "package://robo_teleoperation/meshes/kiste.stl");
+            "package://planning_scene_spawner/meshes/kiste.stl");
 
     shapes::Mesh *meshet = static_cast<shapes::Mesh *>(plt);
     shape_msgs::msg::Mesh mesh;
@@ -94,7 +94,7 @@ void planningSceneSpawnerNode::addCalibrationPlate() {
     collision_object.header.frame_id = planning_frame_;
     collision_object.id = "platte";
     shapes::Shape *plt = shapes::createMeshFromResource(
-            "package://robo_teleoperation/meshes/kalibierplatte.stl");
+            "package://planning_scene_spawner/meshes/kalibierplatte.stl");
     shape_msgs::msg::Mesh mesh;
     shapes::ShapeMsg mesh_msg;
     shapes::constructMsgFromShape(plt, mesh_msg);

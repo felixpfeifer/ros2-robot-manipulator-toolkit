@@ -147,7 +147,7 @@ void controllLoop() {
                     // Convert the Joint Values to rad
                     value = value * M_PI / 180;
                     // Get the number of the Joint from the joint String
-                    int joint_number = std::stoi(joint.substr(1));
+                    int joint_number = stoi(joint) - 1;
                     request->axis.push_back(joint_number);
                     request->data.push_back(value);
                 }

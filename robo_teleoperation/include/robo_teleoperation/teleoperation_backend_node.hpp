@@ -215,6 +215,12 @@ namespace robo_teleoperation {
          */
         void printCurrentPose();
 
+        /**
+         * Print the Given Pose to the Terminal for Debugging
+         * the Pose is printed in the format x, y, z, roll, pitch, yaw
+         *
+         * @param pose  the pose to be printed
+         */
         void printPose(geometry_msgs::msg::Pose pose);
 
     private:

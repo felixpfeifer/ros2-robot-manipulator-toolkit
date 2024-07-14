@@ -211,6 +211,16 @@ namespace robo_teleoperation {
         joint1_constraint.weight = 1.0;
         joint_constraints.joint_constraints.push_back(joint1_constraint);
 
+        // Constraint for joint 2
+        moveit_msgs::msg::JointConstraint joint2_constraint;
+        joint1_constraint.joint_name = "joint_2";
+        joint1_constraint.position = moveGroupInterface->getCurrentJointValues()[1];
+        // Limit the joint to 85 degrees above and below the current position
+        joint1_constraint.tolerance_above = M_PI / 2;// Adjust as necessary
+        joint1_constraint.tolerance_below = M_PI / 2;// Adjust as necessary
+        joint1_constraint.weight = 1.0;
+        joint_constraints.joint_constraints.push_back(joint2_constraint);
+
         // Constraint for joint 4
         moveit_msgs::msg::JointConstraint joint4_constraint;
         joint4_constraint.joint_name = "joint_4";
