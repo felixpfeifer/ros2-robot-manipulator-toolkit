@@ -17,7 +17,6 @@ find_package(sensopart_interfaces REQUIRED)
 find_package(moveit_ros_planning_interface REQUIRED)
 find_package(moveit_core REQUIRED)
 find_package(moveit_ros_planning REQUIRED)
-find_package(moveit_visual_tools REQUIRED)
 # uncomment the following section in order to fill in
 # further dependencies manually.
 # find_package(<dependency> REQUIRED)
@@ -47,7 +46,6 @@ ament_target_dependencies(sensopart_vision_node
   moveit_ros_planning_interface
   moveit_core
   moveit_ros_planning
-  moveit_visual_tools
 )
 
 target_include_directories(sensopart_vision_node PUBLIC

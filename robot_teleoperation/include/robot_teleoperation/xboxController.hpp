@@ -2,8 +2,8 @@
 // Created by felix on 19.06.24.
 //
 
-#ifndef ROBO_TELEOPERATION_XBOXCONTROLLER_HPP
-#define ROBO_TELEOPERATION_XBOXCONTROLLER_HPP
+#ifndef robot_teleoperation_XBOXCONTROLLER_HPP
+#define robot_teleoperation_XBOXCONTROLLER_HPP
 
 #include <control_msgs/msg/joint_jog.hpp>
 #include <geometry_msgs/msg/twist_stamped.hpp>
@@ -32,6 +32,7 @@
 #include <rcl_interfaces/msg/parameter.hpp>
 #include <rcl_interfaces/msg/parameter_value.hpp>
 #include <rcl_interfaces/srv/set_parameters.hpp>
+#include <rclcpp/parameter_client.hpp>
 
 
 using SetParameters = rcl_interfaces::srv::SetParameters;
@@ -44,7 +45,7 @@ private:
     const std::string JOY_TOPIC = "/joy";
     const std::string TWIST_TOPIC = "/servo_node/delta_twist_cmds";
     const std::string JOINT_TOPIC = "/servo_node/delta_joint_cmds";
-    const std::string EEF_FRAME_ID = "Link_6_1";
+    const std::string EEF_FRAME_ID = "TCP_Gripper";
     const std::string BASE_FRAME_ID = "world";
 
 
@@ -97,8 +98,6 @@ private:
     // Open Close the Gripper Tool
     rclcpp::Client<robot_teleoperation_interface::srv::Tool>::SharedPtr tool_client;
 
-    std::shared_ptr<rclcpp::Client<SetParameters>> parameter_client_;
-
     // Future for the service call
     rclcpp::Client<robot_teleoperation_interface::srv::Tool>::SharedFuture tool_future;
     rclcpp::Client<robot_teleoperation_interface::srv::SelectTool>::SharedFuture select_tool_future;
@@ -116,6 +115,12 @@ private:
 
     // Services to interact with Servo
     rclcpp::Client<std_srvs::srv::Trigger>::SharedPtr servo_start_client_;
+
+    // Service to stop the ServoNode
+    rclcpp::Client<std_srvs::srv::Trigger>::SharedPtr servo_stop_client_;
+
+    std::shared_ptr<rclcpp::SyncParametersClient> parameter_client_;
+
 
     bool convertJoyToCmd(const std::vector<float> &axes, const std::vector<int> &buttons,
                          std::unique_ptr<geometry_msgs::msg::TwistStamped> &twist,
@@ -139,4 +144,4 @@ public:
 };
 
 
-#endif//ROBO_TELEOPERATION_XBOXCONTROLLER_HPP
+#endif//robot_teleoperation_XBOXCONTROLLER_HPP

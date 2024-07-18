@@ -14,8 +14,8 @@
 ******************************************************************************/
 
 
-#ifndef ROBO_TELEOPERATION_TELEOPERATION_BACKEND_NODE_HPP
-#define ROBO_TELEOPERATION_TELEOPERATION_BACKEND_NODE_HPP
+#ifndef robot_teleoperation_TELEOPERATION_BACKEND_NODE_HPP
+#define robot_teleoperation_TELEOPERATION_BACKEND_NODE_HPP
 
 #include "robot_teleoperation_interface/msg/teleop.hpp"
 #include <moveit/move_group_interface/move_group_interface.h>
@@ -85,7 +85,7 @@
 #include <memory>
 #include <string>
 
-namespace robo_teleoperation {
+namespace robot_teleoperation {
 
     using CmdType = control_msgs::msg::InterfaceValue;
     using floatarray = std_msgs::msg::Float64MultiArray;
@@ -336,5 +336,5 @@ namespace robo_teleoperation {
         std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
         std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
     };
-}// namespace robo_teleoperation
-#endif//ROBO_TELEOPERATION_TELEOPERATION_BACKEND_NODE_HPP
+}// namespace robot_teleoperation
+#endif//robot_teleoperation_TELEOPERATION_BACKEND_NODE_HPP

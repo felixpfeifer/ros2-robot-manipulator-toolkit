@@ -2,8 +2,8 @@
 // Created by felix on 18.06.24.
 //
 
-#ifndef ROBO_TELEOPERATION_DIRECT_CONTROL_NODE_HPP
-#define ROBO_TELEOPERATION_DIRECT_CONTROL_NODE_HPP
+#ifndef robot_teleoperation_DIRECT_CONTROL_NODE_HPP
+#define robot_teleoperation_DIRECT_CONTROL_NODE_HPP
 
 #include <rclcpp/rclcpp.hpp>
 
@@ -39,4 +39,4 @@ void controllLoop();
 int main(int argc, char *argv[]);
 
 
-#endif//ROBO_TELEOPERATION_DIRECT_CONTROL_NODE_HPP
+#endif//robot_teleoperation_DIRECT_CONTROL_NODE_HPP

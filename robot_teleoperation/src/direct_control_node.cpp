@@ -7,7 +7,7 @@
  * License:     MIT License
  ******************************************************************************/
 
-#include "../include/robo_teleoperation/direct_control_node.hpp"
+#include "../include/robot_teleoperation/direct_control_node.hpp"
 
 void setup() {
     // Set up the service clients

@@ -1,0 +1,56 @@
+{
+  "configurations": [
+    {
+      "browse": {
+        "databaseFilename": "${default}",
+        "limitSymbolsToIncludedHeaders": false
+      },
+      "includePath": [
+        "/home/felix/HHN/Seminararbeit/dev_ws/install/sensopart_vision_ros2/include/**",
+        "/home/felix/HHN/Seminararbeit/dev_ws/install/sensopart_interfaces/include/**",
+        "/home/felix/HHN/Seminararbeit/dev_ws/install/robot_teleoperation_interface/include/**",
+        "/home/felix/HHN/Seminararbeit/dev_ws/install/melfa_assista_hardware/include/**",
+        "/home/felix/ws_moveit2/install/pilz_industrial_motion_planner_testutils/include/**",
+        "/home/felix/ws_moveit2/install/pilz_industrial_motion_planner/include/**",
+        "/home/felix/ws_moveit2/install/moveit_ros_control_interface/include/**",
+        "/home/felix/ws_moveit2/install/moveit_simple_controller_manager/include/**",
+        "/home/felix/ws_moveit2/install/moveit_setup_assistant/include/**",
+        "/home/felix/ws_moveit2/install/moveit_setup_srdf_plugins/include/**",
+        "/home/felix/ws_moveit2/install/moveit_setup_core_plugins/include/**",
+        "/home/felix/ws_moveit2/install/moveit_setup_controllers/include/**",
+        "/home/felix/ws_moveit2/install/moveit_setup_app_plugins/include/**",
+        "/home/felix/ws_moveit2/install/moveit_setup_framework/include/**",
+        "/home/felix/ws_moveit2/install/moveit_servo/include/**",
+        "/home/felix/ws_moveit2/install/moveit_ros_visualization/include/**",
+        "/home/felix/ws_moveit2/install/moveit_hybrid_planning/include/**",
+        "/home/felix/ws_moveit2/install/moveit_ros_planning_interface/include/**",
+        "/home/felix/ws_moveit2/install/moveit_ros_benchmarks/include/**",
+        "/home/felix/ws_moveit2/install/moveit_ros_warehouse/include/**",
+        "/home/felix/ws_moveit2/install/moveit_ros_robot_interaction/include/**",
+        "/home/felix/ws_moveit2/install/moveit_ros_perception/include/**",
+        "/home/felix/ws_moveit2/install/moveit_ros_move_group/include/**",
+        "/home/felix/ws_moveit2/install/moveit_planners_ompl/include/**",
+        "/home/felix/ws_moveit2/install/moveit_ros_planning/include/**",
+        "/home/felix/ws_moveit2/install/moveit_ros_occupancy_map_monitor/include/**",
+        "/home/felix/ws_moveit2/install/moveit_kinematics/include/**",
+        "/home/felix/ws_moveit2/install/chomp_motion_planner/include/**",
+        "/home/felix/ws_moveit2/install/moveit_core/include/**",
+        "/home/felix/ws_moveit2/install/generate_parameter_library_example/include/**",
+        "/home/felix/ws_moveit2/install/parameter_traits/include/**",
+        "/home/felix/ws_moveit2/install/moveit_msgs/include/**",
+        "/opt/ros/humble/include/**",
+        "/home/felix/HHN/Seminararbeit/dev_ws/src/melfa-assista-ros2/melfa_assista_hardware/include/**",
+        "/home/felix/HHN/Seminararbeit/dev_ws/src/ros2-robot-manipulator-toolkit/planning_scene_spawner/include/**",
+        "/home/felix/HHN/Seminararbeit/dev_ws/src/ros2-robot-manipulator-toolkit/robot_teleoperation/include/**",
+        "/home/felix/HHN/Seminararbeit/dev_ws/src/ros2-robot-manipulator-toolkit/sensopart_vision_ros2/include/**",
+        "/usr/include/**"
+      ],
+      "name": "ROS",
+      "intelliSenseMode": "gcc-x64",
+      "compilerPath": "/usr/bin/gcc",
+      "cStandard": "gnu11",
+      "cppStandard": "c++14"
+    }
+  ],
+  "version": 4
+}

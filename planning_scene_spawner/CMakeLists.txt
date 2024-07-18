@@ -15,7 +15,6 @@ find_package(rclcpp REQUIRED)
 find_package(moveit_core REQUIRED)
 find_package(moveit_ros_planning REQUIRED)
 find_package(moveit_ros_planning_interface REQUIRED)
-find_package(moveit_visual_tools REQUIRED)
 find_package(moveit_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 
@@ -37,7 +36,7 @@ ament_target_dependencies(
   moveit_core
   moveit_ros_planning
   moveit_ros_planning_interface
-  moveit_visual_tools
+  
   moveit_msgs
   geometry_msgs
 )

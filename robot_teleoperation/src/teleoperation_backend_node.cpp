@@ -7,10 +7,10 @@
  * License:     MIT License
  ******************************************************************************/
 
-#include "robo_teleoperation/teleoperation_backend_node.hpp"
+#include "robot_teleoperation/teleoperation_backend_node.hpp"
 
 
-namespace robo_teleoperation {
+namespace robot_teleoperation {
 
     using namespace std::chrono_literals;
 
@@ -789,12 +789,12 @@ namespace robo_teleoperation {
         // Move the Robot to the new Pose
         moveWorldPose(new_world_pose.pose);
     }
-}// namespace robo_teleoperation
-// namespace robo_teleoperation
+}// namespace robot_teleoperation
+// namespace robot_teleoperation
 
 int main(int argc, char *argv[]) {
     rclcpp::init(argc, argv);
-    rclcpp::spin(std::make_unique<robo_teleoperation::TeleoperationBackendNode>());
+    rclcpp::spin(std::make_unique<robot_teleoperation::TeleoperationBackendNode>());
     rclcpp::shutdown();
     return 0;
 }

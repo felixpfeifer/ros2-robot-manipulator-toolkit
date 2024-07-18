@@ -1,4 +1,4 @@
-#include "../include/robo_teleoperation/space_mouse_node.hpp"
+#include "../include/robot_teleoperation/space_mouse_node.hpp"
 #include <rclcpp/executors.hpp>
 
 SpaceMouse::SpaceMouse() : Node("space_mouse_node") {

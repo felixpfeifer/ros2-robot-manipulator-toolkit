@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.8)
-project(robo_teleoperation)
+project(robot_teleoperation)
 
 if (CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     add_compile_options(-Wall -Wextra -Wpedantic)
@@ -11,7 +11,6 @@ find_package(rclcpp REQUIRED)
 find_package(moveit_ros_planning_interface REQUIRED)
 find_package(moveit_core REQUIRED)
 find_package(moveit_ros_planning REQUIRED)
-find_package(moveit_visual_tools REQUIRED)
 find_package(robot_teleoperation_interface REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(sensor_msgs REQUIRED)
@@ -32,22 +31,22 @@ link_directories(${MONGOCXX_LIBRARY_DIRS})
 
 
 add_executable(teleop_controller_node src/teleoperation_backend_node.cpp
-        include/robo_teleoperation/teleoperation_backend_node.hpp
+        include/robot_teleoperation/teleoperation_backend_node.hpp
 )
 
 target_link_libraries(teleop_controller_node ${MONGOCXX_LIBRARIES})
 
 
 add_executable(direct_control_node src/direct_control_node.cpp
-        include/robo_teleoperation/direct_control_node.hpp
+        include/robot_teleoperation/direct_control_node.hpp
 )
 
 add_executable(xbox_controller src/xboxController.cpp
-        include/robo_teleoperation/xboxController.hpp
+        include/robot_teleoperation/xboxController.hpp
 )
 
 add_executable(space_mouse_node src/space_mouse_node.cpp
-        include/robo_teleoperation/space_mouse_node.hpp
+        include/robot_teleoperation/space_mouse_node.hpp
 )
 
 ament_target_dependencies(xbox_controller
@@ -58,7 +57,7 @@ ament_target_dependencies(xbox_controller
         moveit_core
         moveit_ros_planning_interface
         moveit_ros_planning
-        moveit_visual_tools
+        
         moveit_servo
         control_msgs
         rcl_interfaces
@@ -72,7 +71,7 @@ ament_target_dependencies(space_mouse_node
         moveit_core
         moveit_ros_planning_interface
         moveit_ros_planning
-        moveit_visual_tools
+        
         moveit_servo
         control_msgs
 

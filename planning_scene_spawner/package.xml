@@ -21,7 +21,6 @@
   <depend>geometry_msgs</depend>
   <depend>std_msgs</depend>
   <depend>control_msgs</depend>
-  <depend>moveit_visual_tools</depend>
   <depend>robot_teleoperation_interface</depend>
   <depend>moveit_servo</depend>
 

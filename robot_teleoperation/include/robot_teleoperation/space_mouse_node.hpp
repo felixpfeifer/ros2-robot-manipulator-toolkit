@@ -2,8 +2,8 @@
 // Created by felix on 19.06.24.
 //
 
-#ifndef ROBO_TELEOPERATION_XBOXCONTROLLER_HPP
-#define ROBO_TELEOPERATION_XBOXCONTROLLER_HPP
+#ifndef robot_teleoperation_XBOXCONTROLLER_HPP
+#define robot_teleoperation_XBOXCONTROLLER_HPP
 
 #include <control_msgs/msg/joint_jog.hpp>
 #include <geometry_msgs/msg/twist_stamped.hpp>
@@ -51,4 +51,4 @@ public:
 };
 
 
-#endif//ROBO_TELEOPERATION_XBOXCONTROLLER_HPP
+#endif//robot_teleoperation_XBOXCONTROLLER_HPP

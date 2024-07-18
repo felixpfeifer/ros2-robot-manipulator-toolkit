@@ -1,0 +1,26 @@
+{
+    "python.autoComplete.extraPaths": [
+        "/home/felix/HHN/Seminararbeit/dev_ws/install/sensopart_connector/lib/python3.10/site-packages",
+        "/home/felix/HHN/Seminararbeit/dev_ws/install/sensopart_interfaces/local/lib/python3.10/dist-packages",
+        "/home/felix/HHN/Seminararbeit/dev_ws/install/robot_teleoperation_interface/local/lib/python3.10/dist-packages",
+        "/home/felix/ws_moveit2/install/generate_parameter_module_example/lib/python3.10/site-packages",
+        "/home/felix/ws_moveit2/install/cmake_generate_parameter_module_example/local/lib/python3.10/dist-packages",
+        "/home/felix/ws_moveit2/install/moveit_msgs/local/lib/python3.10/dist-packages",
+        "/home/felix/ws_moveit2/install/moveit_configs_utils/lib/python3.10/site-packages",
+        "/home/felix/ws_moveit2/install/generate_parameter_library_py/lib/python3.10/site-packages",
+        "/opt/ros/humble/lib/python3.10/site-packages",
+        "/opt/ros/humble/local/lib/python3.10/dist-packages"
+    ],
+    "python.analysis.extraPaths": [
+        "/home/felix/HHN/Seminararbeit/dev_ws/install/sensopart_connector/lib/python3.10/site-packages",
+        "/home/felix/HHN/Seminararbeit/dev_ws/install/sensopart_interfaces/local/lib/python3.10/dist-packages",
+        "/home/felix/HHN/Seminararbeit/dev_ws/install/robot_teleoperation_interface/local/lib/python3.10/dist-packages",
+        "/home/felix/ws_moveit2/install/generate_parameter_module_example/lib/python3.10/site-packages",
+        "/home/felix/ws_moveit2/install/cmake_generate_parameter_module_example/local/lib/python3.10/dist-packages",
+        "/home/felix/ws_moveit2/install/moveit_msgs/local/lib/python3.10/dist-packages",
+        "/home/felix/ws_moveit2/install/moveit_configs_utils/lib/python3.10/site-packages",
+        "/home/felix/ws_moveit2/install/generate_parameter_library_py/lib/python3.10/site-packages",
+        "/opt/ros/humble/lib/python3.10/site-packages",
+        "/opt/ros/humble/local/lib/python3.10/dist-packages"
+    ]
+}

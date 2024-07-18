@@ -34,7 +34,7 @@ def generate_launch_description():
 
     # Spawn the teleop_controller_node after the MoveGroup node is running
     teleop_node = Node(
-        package="robo_teleoperation",
+        package="robot_teleoperation",
         executable="teleop_controller_node",
         name="teleop_controller_node",
         output="screen",

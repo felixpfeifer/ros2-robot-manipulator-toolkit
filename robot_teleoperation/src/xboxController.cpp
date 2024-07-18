@@ -1,4 +1,4 @@
-#include "robo_teleoperation/xboxController.hpp"
+#include "robot_teleoperation/xboxController.hpp"
 #include <rcl_interfaces/srv/set_parameters.hpp>
 #include <rclcpp/rclcpp.hpp>
 
@@ -42,13 +42,12 @@ xbox_controller::xbox_controller() : Node("xbox_controller") {
     servo_start_client_->wait_for_service(std::chrono::seconds(1));
     RCLCPP_INFO(this->get_logger(), "Service /servo_node/start_servo available");
 
+    servo_stop_client_ = node->create_client<std_srvs::srv::Trigger>("/servo_node/stop_servo");
     servo_start_client_->async_send_request(std::make_shared<std_srvs::srv::Trigger::Request>());
     RCLCPP_INFO(this->get_logger(), "Service request to start servo node sent");
 
-    // Create a client for setting parameters
-    parameter_client_ = node->create_client<SetParameters>("/servo_node/set_parameters");
-
-    RCLCPP_INFO(this->get_logger(), "Parameter client created");
+    // Services to get and set the parameters of the Servo Node
+    parameter_client_ = std::make_shared<rclcpp::SyncParametersClient>(node, "servo_node");
 }
 
 void xbox_controller::joy_callback(const sensor_msgs::msg::Joy::SharedPtr msg) {
@@ -100,61 +99,78 @@ bool xbox_controller::convertJoyToCmd(const std::vector<float> &axes, const std:
         debouncing_states["A"] = 0;
     }
 
-    // Button B is to select the gripper_tcp link
+    // Button B is to change the Parameter planning_frame to world or to TCP_Gripper
+    // And Restart the Servo node to accept the new parameter
     if (buttons[B] && debouncing_states["B"] == 0) {
+        // Get the current Planning Frame
         RCLCPP_INFO(this->get_logger(), "Button B pressed");
         debouncing_states["B"] = 1;
-        // Change the ee_frame_name paramter in the servo_node
-        // Change the ee_frame_name parameter in the servo_node
-        auto request = std::make_shared<rcl_interfaces::srv::SetParameters::Request>();
-        request->parameters.push_back(
-                rclcpp::Parameter("moveit_servo.ee_frame_name", "tcp_gripper").to_parameter_msg());
+        // Set a timeout duration
+        std::chrono::seconds timeout(5);
 
-        auto param_response = parameter_client_->async_send_request(request);
-        rclcpp::spin_until_future_complete(node, param_response);
-        if (param_response.get()->results[0].successful) {
-            RCLCPP_INFO(this->get_logger(), "Parameter moveit_servo.ee_frame_name set successfully");
-        } else {
-            RCLCPP_ERROR(this->get_logger(), "Failed to set parameter moveit_servo.ee_frame_name");
+        // Ensure parameter client is initialized
+        if (!parameter_client_->wait_for_service(std::chrono::seconds(5))) {
+            RCLCPP_ERROR(this->get_logger(), "Parameter service is not available");
+            return false;
         }
+        RCLCPP_INFO(this->get_logger(), "Parameter service is available");
+
+        // Get the current value of the planning_frame parameter
+        auto parameters = parameter_client_->get_parameters({"moveit_servo.planning_frame"});
+        if (parameters.empty()) {
+            RCLCPP_ERROR(this->get_logger(), "Failed to get parameter");
+            return false;
+        }
+        RCLCPP_INFO(this->get_logger(), "Current planning_frame: %s", parameters[0].get_parameter_value().to_value_msg().string_value.c_str());
+        // Change the value of the parameter between "world" and "tcp_gripper"
+        std::string new_value = parameters[0].as_string() == "world" ? "tcp_gripper" : "world";
+        RCLCPP_INFO(this->get_logger(), "Setting new value: %s", new_value.c_str());
+
+        // Set the new value of the parameter
+        rclcpp::Parameter new_parameter("moveit_servo.planning_frame", new_value);
+        auto set_parameters_results = parameter_client_->set_parameters({new_parameter});
+
+        for (auto &result: set_parameters_results) {
+            if (!result.successful) {
+                RCLCPP_ERROR(this->get_logger(), "Failed to set parameter: %s", result.reason.c_str());
+            } else {
+                RCLCPP_INFO(this->get_logger(), "Successfully set parameter.");
+            }
+        }
+
+        // Restart the Servo Node
+        auto request = std::make_shared<std_srvs::srv::Trigger::Request>();
+        auto response = servo_stop_client_->async_send_request(request);
+        rclcpp::spin_until_future_complete(node, response);
+        if (response.get()->success) {
+            RCLCPP_INFO(this->get_logger(), "Servo node stopped");
+        } else {
+            RCLCPP_ERROR(this->get_logger(), "Failed to stop servo node");
+        }
+        // Start the Servo Node
+        response = servo_start_client_->async_send_request(request);
+        rclcpp::spin_until_future_complete(node, response);
+        if (response.get()->success) {
+            RCLCPP_INFO(this->get_logger(), "Servo node started");
+        } else {
+            RCLCPP_ERROR(this->get_logger(), "Failed to start servo node");
+        }
+        
+
     } else if (buttons[B] == 0 && debouncing_states["B"] == 1) {
         debouncing_states["B"] = 0;
     }
 
     // Button X is to select the Link_6_1
     if (buttons[X] && debouncing_states["X"] == 0) {
-        RCLCPP_INFO(this->get_logger(), "Button X pressed");
-        debouncing_states["X"] = 1;
-        // Change the ee_frame_name paramter in the servo_node
-        // Change the ee_frame_name parameter in the servo_node
-        auto request = std::make_shared<rcl_interfaces::srv::SetParameters::Request>();
-        request->parameters.push_back(rclcpp::Parameter("moveit_servo.ee_frame_name", "Link_6_1").to_parameter_msg());
-        auto param_response = parameter_client_->async_send_request(request);
-        rclcpp::spin_until_future_complete(node, param_response);
-        if (param_response.get()->results[0].successful) {
-            RCLCPP_INFO(this->get_logger(), "Parameter moveit_servo.ee_frame_name set successfully");
-        } else {
-            RCLCPP_ERROR(this->get_logger(), "Failed to set parameter moveit_servo.ee_frame_name");
-        }
+
     } else if (buttons[X] == 0 && debouncing_states["X"] == 1) {
         debouncing_states["X"] = 0;
     }
 
     // Button Y to select the camera_tcp link
     if (buttons[Y] && debouncing_states["Y"] == 0) {
-        RCLCPP_INFO(this->get_logger(), "Button Y pressed");
-        debouncing_states["Y"] = 1;
-        // Change the ee_frame_name paramter in the servo_node
-        // Change the ee_frame_name parameter in the servo_node
-        auto request = std::make_shared<rcl_interfaces::srv::SetParameters::Request>();
-        request->parameters.push_back(rclcpp::Parameter("moveit_servo.ee_frame_name", "camera_tcp").to_parameter_msg());
-        auto param_response = parameter_client_->async_send_request(request);
-        rclcpp::spin_until_future_complete(node->shared_from_this(), param_response);
-        if (param_response.get()->results[0].successful) {
-            RCLCPP_INFO(this->get_logger(), "Parameter moveit_servo.ee_frame_name set successfully");
-        } else {
-            RCLCPP_ERROR(this->get_logger(), "Failed to set parameter moveit_servo.ee_frame_name");
-        }
+
     } else if (buttons[Y] == 0 && debouncing_states["Y"] == 1) {
         debouncing_states["Y"] = 0;
     }
