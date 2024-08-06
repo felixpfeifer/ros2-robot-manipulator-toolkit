@@ -33,7 +33,7 @@ void setup();
 std::vector<std::string> getTerminalInput();
 
 // Function to control the robot directly
-void controllLoop();
+void controlLoop();
 
 // Main function
 int main(int argc, char *argv[]);

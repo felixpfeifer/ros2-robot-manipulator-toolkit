@@ -99,7 +99,7 @@ namespace robot_teleoperation {
         /**
          * Moves the robot to the home position
          */
-        void moveNamedPositon(const std::string &position);
+        void moveNamedPosition(const std::string &position);
 
         /**
          * Moves the robot to the specified pose
@@ -156,7 +156,7 @@ namespace robot_teleoperation {
          * @param name the name of the pose
          * @return true if the pose was saved successfully
          */
-        bool safePosetoMongoDB(geometry_msgs::msg::Pose pose, std::string name);
+        bool safePoseToMongoDB(geometry_msgs::msg::Pose pose, std::string name);
 
         // Services
 
@@ -183,7 +183,7 @@ namespace robot_teleoperation {
          * @param request
          * @param response
          */
-        void allignTCPService(const std::shared_ptr<robot_teleoperation_interface::srv::AllignTCP::Request> request,
+        void alignTCPService(const std::shared_ptr<robot_teleoperation_interface::srv::AllignTCP::Request> request,
                               std::shared_ptr<robot_teleoperation_interface::srv::AllignTCP::Response> response);
 
         /**
@@ -267,7 +267,7 @@ namespace robot_teleoperation {
         rclcpp::Service<robot_teleoperation_interface::srv::MoveRobot>::SharedPtr move_robot_service;
         rclcpp::Service<robot_teleoperation_interface::srv::MovePoint>::SharedPtr move_point_service;
         rclcpp::Service<robot_teleoperation_interface::srv::SelectTool>::SharedPtr select_tool_service;
-        rclcpp::Service<robot_teleoperation_interface::srv::AllignTCP>::SharedPtr allign_tcp_service;
+        rclcpp::Service<robot_teleoperation_interface::srv::AllignTCP>::SharedPtr align_tcp_service;
         rclcpp::Service<robot_teleoperation_interface::srv::Hand2Eye>::SharedPtr hand2_eye_service;
         rclcpp::Service<robot_teleoperation_interface::srv::TeachPoint>::SharedPtr teach_point_service;
         rclcpp::Service<robot_teleoperation_interface::srv::Tool>::SharedPtr tool_service;
@@ -319,7 +319,7 @@ namespace robot_teleoperation {
          */
         void calculateSpeed_Timecallback();
 
-        // Last Pose of the eeframe
+        // Last Pose of the End Effector Frame
         geometry_msgs::msg::PoseStamped last_position_;
         // Publisher for the TwistStamped message
         rclcpp::Publisher<geometry_msgs::msg::TwistStamped>::SharedPtr speed_publisher_;
@@ -329,7 +329,7 @@ namespace robot_teleoperation {
         // Last time initialized with 0
         rclcpp::Time last_time_ = rclcpp::Time(0, 0);
 
-        // Subscriper of joint_states
+        // Subscriber of joint_states
         rclcpp::Subscription<sensor_msgs::msg::JointState>::SharedPtr joint_state_subscriber_;
 
         // Variables for the TCP Movement in the EndEffector Frame

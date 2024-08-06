@@ -2,9 +2,7 @@
 #include <rcl_interfaces/srv/set_parameters.hpp>
 #include <rclcpp/rclcpp.hpp>
 
-using SetParameters = rcl_interfaces::srv::SetParameters;
 using Parameter = rcl_interfaces::msg::Parameter;
-using ParameterValue = rcl_interfaces::msg::ParameterValue;
 
 xbox_controller::xbox_controller() : Node("xbox_controller") {
     // Set up the publisher for the twist command
@@ -55,10 +53,8 @@ void xbox_controller::joy_callback(const sensor_msgs::msg::Joy::SharedPtr msg) {
 
     // Create the twist and joint messages
     auto twist_msg = std::make_unique<geometry_msgs::msg::TwistStamped>();
-    auto joint_msg = std::make_unique<control_msgs::msg::JointJog>();
-
     // Convert the joystick message to a twist or joint message
-    bool is_twist = convertJoyToCmd(msg->axes, msg->buttons, twist_msg, joint_msg);
+    bool is_twist = convertJoyToCmd(msg->axes, msg->buttons, twist_msg);
     if (is_twist) {
         // publish the TwistStamped
         twist_msg->header.frame_id = BASE_FRAME_ID;
@@ -73,15 +69,14 @@ xbox_controller::~xbox_controller() {
 }
 
 bool xbox_controller::convertJoyToCmd(const std::vector<float> &axes, const std::vector<int> &buttons,
-                                      std::unique_ptr<geometry_msgs::msg::TwistStamped> &twist,
-                                      std::unique_ptr<control_msgs::msg::JointJog> &joint) {
+                                      std::unique_ptr<geometry_msgs::msg::TwistStamped> &twist) {
     //RCLCPP_INFO(this->get_logger(), "convertJoyToCmd called");
 
     // Give joint jogging priority because it is only buttons
     // If any joint jog command is requested, we are only publishing joint commands
     // Buttons A is to open/close the Gripper
     // If the Gripper is open, close it
-    // Use debounding for the button
+    // Use debouncing for the button
     if (buttons[A] && debouncing_states["A"] == 0) {
         RCLCPP_INFO(this->get_logger(), "Button A pressed");
         debouncing_states["A"] = 1;
@@ -105,8 +100,6 @@ bool xbox_controller::convertJoyToCmd(const std::vector<float> &axes, const std:
         // Get the current Planning Frame
         RCLCPP_INFO(this->get_logger(), "Button B pressed");
         debouncing_states["B"] = 1;
-        // Set a timeout duration
-        std::chrono::seconds timeout(5);
 
         // Ensure parameter client is initialized
         if (!parameter_client_->wait_for_service(std::chrono::seconds(5))) {
@@ -155,7 +148,7 @@ bool xbox_controller::convertJoyToCmd(const std::vector<float> &axes, const std:
         } else {
             RCLCPP_ERROR(this->get_logger(), "Failed to start servo node");
         }
-        
+
 
     } else if (buttons[B] == 0 && debouncing_states["B"] == 1) {
         debouncing_states["B"] = 0;
@@ -190,7 +183,7 @@ bool xbox_controller::convertJoyToCmd(const std::vector<float> &axes, const std:
     double roll_negative = -1 * (buttons[LEFT_BUMPER]);
     twist->twist.angular.z = roll_positive + roll_negative;
 
-    // Max Twist Velocities in xyz is 0.25 m / s enfore this
+    // Max Twist Velocities in xyz is 0.25 m / s enforce this
 
     double vel = sqrt(pow(twist->twist.linear.x, 2) + pow(twist->twist.linear.y, 2) + pow(twist->twist.linear.z, 2));
     // If the velocity is greater than the max, scale it down

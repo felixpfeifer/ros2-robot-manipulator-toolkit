@@ -42,8 +42,8 @@ namespace robot_teleoperation {
         select_tool_service = this->create_service<robot_teleoperation_interface::srv::SelectTool>(
                 "select_tool", std::bind(&TeleoperationBackendNode::selectToolService, this, std::placeholders::_1,
                                          std::placeholders::_2));
-        allign_tcp_service = this->create_service<robot_teleoperation_interface::srv::AllignTCP>(
-                "allign_tcp", std::bind(&TeleoperationBackendNode::allignTCPService, this, std::placeholders::_1,
+        align_tcp_service = this->create_service<robot_teleoperation_interface::srv::AllignTCP>(
+                "align_tcp", std::bind(&TeleoperationBackendNode::alignTCPService, this, std::placeholders::_1,
                                         std::placeholders::_2));
 
         teach_point_service = this->create_service<robot_teleoperation_interface::srv::TeachPoint>(
@@ -74,12 +74,11 @@ namespace robot_teleoperation {
         // Set Joint Constraints to avoid flipping
         setJointConstraints();
 
-        gripper_open = true;
 
         // Print Current Planning Frame
         RCLCPP_INFO(this->get_logger(), "Planning Frame: %s", moveGroupInterface->getPlanningFrame().c_str());
 
-        // Teleop Controller is ready to receive commands
+        // Teleoperation Controller is ready to receive commands
         RCLCPP_INFO(this->get_logger(), "Teleoperation Backend Node is ready to receive commands");
 
         // Timer that runs every 20ms to get the current state of the robot
@@ -87,7 +86,8 @@ namespace robot_teleoperation {
         timer_ = this->create_wall_timer(100ms, std::bind(&TeleoperationBackendNode::calculateSpeed_Timecallback, this));
 
         // Move to Home Position
-        moveNamedPositon("home");
+        moveNamedPosition("home");
+        gripper_open = true; // Set to Gripper open at the Start // May need to double the Tool command to see make a change at the start
         homing = false;
 
         // At the Start the End Effector is the Gripper
@@ -114,14 +114,14 @@ namespace robot_teleoperation {
         // At the Start
         // Move the Robot to Home Position
         if (homing) {
-            moveNamedPositon("home");
+            moveNamedPosition("home");
             homing = false;
 
-            // Swtich the End Effector to the Camera
+            // Switch the End Effector to the Camera
             switchEndEffector(false);
             // Align the TCP to the World Orientation
             alignTCP();
-            // Swtich the End Effector to the Gripper
+            // Switch the End Effector to the Gripper
             //switchEndEffector(true);
 
         }
@@ -132,7 +132,7 @@ namespace robot_teleoperation {
         }
     }
 
-    void TeleoperationBackendNode::moveNamedPositon(const std::string &position) {
+    void TeleoperationBackendNode::moveNamedPosition(const std::string &position) {
         RCLCPP_INFO(this->get_logger(), "Move Robot to Home Position");
         moveGroupInterface->setNamedTarget(position);
         moveGroupInterface->move();
@@ -141,7 +141,7 @@ namespace robot_teleoperation {
     void TeleoperationBackendNode::moveJoint(std::vector<double> joint_values, bool jog = false) {
         RCLCPP_INFO(this->get_logger(), "Move Robot to Joint Position");
         if (jog) {
-            // Get the Current Postion of the Joints and add to joint_values
+            // Get the Current Position of the Joints and add to joint_values
             std::vector<double> current_joint_values = moveGroupInterface->getCurrentJointValues();
             for (int i = 0; i < joint_values.size(); ++i) {
                 joint_values[i] += current_joint_values[i];
@@ -391,7 +391,7 @@ namespace robot_teleoperation {
         return target_pose;
     }
 
-    bool TeleoperationBackendNode::safePosetoMongoDB(geometry_msgs::msg::Pose pose, std::string name) {
+    bool TeleoperationBackendNode::safePoseToMongoDB(geometry_msgs::msg::Pose pose, std::string name) {
 
         // Safe the Pose to the MongoDB
         RCLCPP_INFO(this->get_logger(), "Safe Pose to MongoDB");
@@ -535,10 +535,10 @@ namespace robot_teleoperation {
         // Select the Tool
         switch (request->tcp_id) {
             case 0:
-                // Flansch of the Robot Link_6_1
+                // flange of the Robot (Link_6_1)
                 moveGroupInterface->setEndEffectorLink("Link_6_1");
                 response->success = true;
-                response->message = "Selected Tool: Flansch";
+                response->message = "Selected Tool: Flange";
                 break;
             case 1:
                 // Camera
@@ -559,10 +559,10 @@ namespace robot_teleoperation {
         }
     }
 
-    void TeleoperationBackendNode::allignTCPService(
+    void TeleoperationBackendNode::alignTCPService(
             const std::shared_ptr<robot_teleoperation_interface::srv::AllignTCP::Request> request,
             std::shared_ptr<robot_teleoperation_interface::srv::AllignTCP::Response> response) {
-        RCLCPP_INFO(this->get_logger(), "Allign TCP Service");
+        RCLCPP_INFO(this->get_logger(), "Align TCP Service");
         printCurrentPose();
         // Align the TCP to the World Orientation
         // Check if pose is emtpy
@@ -582,7 +582,7 @@ namespace robot_teleoperation {
             std::shared_ptr<robot_teleoperation_interface::srv::TeachPoint::Response> response) {
         RCLCPP_INFO(this->get_logger(), "Teach Point Service");
         // Check if the Pose Name is home or
-        std::regex pattern("home", std::regex_constants::icase);
+        std::regex pattern("home", std::regex_constants::icase); // Ignore Case Sensitivity
         if (std::regex_match(request->name, pattern)) {
             std::cout << "The word is 'home' (case insensitive match)." << std::endl;
             response->success = false;
@@ -590,7 +590,7 @@ namespace robot_teleoperation {
             return;
         }
         auto pose = moveGroupInterface->getCurrentPose().pose;
-        response->success = safePosetoMongoDB(pose, request->name);
+        response->success = safePoseToMongoDB(pose, request->name);
     }
 
     void TeleoperationBackendNode::toolService(
@@ -614,7 +614,6 @@ namespace robot_teleoperation {
 
     void TeleoperationBackendNode::gpioCallback(const CmdType::SharedPtr msg) {
         //RCLCPP_INFO(this->get_logger(), "GPIO Callback");
-        // Limit the Callback execution to 1 Hz
         // Check if the GPIO is not empty
         if (msg->values.size() > 0) {
             // Check if the GPIO is the Homing GPIO
@@ -721,7 +720,7 @@ namespace robot_teleoperation {
         last_time_ = current_time;
     }
     void TeleoperationBackendNode::printPose(geometry_msgs::msg::Pose pose) {
-        // Print the Current Pose with the Positon and Orientation in euler angles
+        // Print the Current Pose with the Position and Orientation in euler angles
         RCLCPP_INFO(this->get_logger(), "Current TCP-Pose: x: %f, y: %f, z: %f",
                     pose.position.x, pose.position.y, pose.position.z);
         // Transform the Orientation to Euler Angles
@@ -740,7 +739,6 @@ namespace robot_teleoperation {
 
         // Get the current Pose of the End Effector
         geometry_msgs::msg::PoseStamped current_pose = moveGroupInterface->getCurrentPose();
-        //TODO:  Transform the Pose to the Tool Frame
         geometry_msgs::msg::PoseStamped tool_pose;
         try {
             // Transform the Pose to the Tool Frame
@@ -776,7 +774,6 @@ namespace robot_teleoperation {
             }
         }
 
-        //TODO: Transform the Pose back to the World Frame
         geometry_msgs::msg::PoseStamped new_world_pose;
         try {
             // Transform the Pose back to the World Frame
@@ -789,7 +786,7 @@ namespace robot_teleoperation {
         // Move the Robot to the new Pose
         moveWorldPose(new_world_pose.pose);
     }
-}// namespace robot_teleoperation
+}
 // namespace robot_teleoperation
 
 int main(int argc, char *argv[]) {

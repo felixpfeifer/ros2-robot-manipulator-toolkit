@@ -11,7 +11,7 @@
 
 void setup() {
     // Set up the service clients
-    align_tcp_client = node->create_client<robot_teleoperation_interface::srv::AllignTCP>("allign_tcp");
+    align_tcp_client = node->create_client<robot_teleoperation_interface::srv::AllignTCP>("align_tcp");
     select_tool_client = node->create_client<robot_teleoperation_interface::srv::SelectTool>("select_tool");
     move_robot_client = node->create_client<robot_teleoperation_interface::srv::MoveRobot>("move_robot");
     teach_point_client = node->create_client<robot_teleoperation_interface::srv::TeachPoint>("teach_point");
@@ -30,7 +30,7 @@ std::vector<std::string> getTerminalInput() {
     return input_vector;
 }
 
-void controllLoop() {
+void controlLoop() {
 
     // Print the Message for the User
     RCLCPP_INFO(logger, "Welcome to the Direct Control Interface");
@@ -163,7 +163,7 @@ void controllLoop() {
                 for (int i = 2; i < input.size(); i += 2) {
                     std::string axis = input[i];
                     double value = stod(input[i + 1]);
-                    // Convet the QX,QZ,QW to rad and XYZ to m from mm
+                    // Convert the QX,QZ,QW to rad and XYZ to m from mm
                     // Get the order of the axis as id lower and upper case
                     if (axis == "X" || axis == "Y" || axis == "Z" || axis == "x" || axis == "y" || axis == "z") {
                         value = value / 1000;
@@ -200,7 +200,7 @@ void controllLoop() {
                 for (int i = 2; i < input.size(); i += 2) {
                     std::string axis = input[i];
                     double value = stod(input[i + 1]);
-                    // Convet the QX,QZ,QW to rad and XYZ to m from mm
+                    // Convert the QX,QZ,QW to rad and XYZ to m from mm
                     // Get the order of the axis as id lower and upper case
                     if (axis == "X" || axis == "Y" || axis == "Z" || axis == "x" || axis == "y" || axis == "z") {
                         value = value / 1000;

@@ -28,16 +28,14 @@
 #include "robot_teleoperation_interface/srv/select_tool.hpp"
 #include "robot_teleoperation_interface/srv/tool.hpp"
 
-// Import rcl_inferfaces for parameter setting
+// Import rcl_interfaces for parameter setting
 #include <rcl_interfaces/msg/parameter.hpp>
 #include <rcl_interfaces/msg/parameter_value.hpp>
 #include <rcl_interfaces/srv/set_parameters.hpp>
 #include <rclcpp/parameter_client.hpp>
 
 
-using SetParameters = rcl_interfaces::srv::SetParameters;
 using Parameter = rcl_interfaces::msg::Parameter;
-using ParameterValue = rcl_interfaces::msg::ParameterValue;
 
 class xbox_controller : public rclcpp::Node {
 private:
@@ -123,15 +121,14 @@ private:
 
 
     bool convertJoyToCmd(const std::vector<float> &axes, const std::vector<int> &buttons,
-                         std::unique_ptr<geometry_msgs::msg::TwistStamped> &twist,
-                         std::unique_ptr<control_msgs::msg::JointJog> &joint);
+                         std::unique_ptr<geometry_msgs::msg::TwistStamped> &twist);
 
     const double MAX_ROT_SPEED = 0.5;
     double max_rot = 0.5;
     double currentAngularPercentage = 1.0;
     const double MAX_VEL = 0.25;
     double max_vel = 0.25;
-    double currentLinearVeloctiyPercent = 1.0;
+    double currentLinearVelocityPercent = 1.0;
 
     rclcpp::Node::SharedPtr node;
 

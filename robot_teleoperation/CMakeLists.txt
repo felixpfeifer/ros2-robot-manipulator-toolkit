@@ -71,7 +71,6 @@ ament_target_dependencies(space_mouse_node
         moveit_core
         moveit_ros_planning_interface
         moveit_ros_planning
-        
         moveit_servo
         control_msgs
 
