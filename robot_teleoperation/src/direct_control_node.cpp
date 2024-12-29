@@ -264,7 +264,7 @@ int main(int argc, char *argv[]) {
     rclcpp::init(argc, argv);
     node = std::make_shared<rclcpp::Node>("direct_movement_node");
     setup();
-    controllLoop();
+    controlLoop();
     rclcpp::shutdown();
     return 0;
 }

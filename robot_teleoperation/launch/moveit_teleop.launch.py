@@ -23,15 +23,6 @@ def generate_launch_description():
         .to_moveit_configs()
     )
 
-    # Launch the MoveGroup 
-    move_group_node = Node(
-        package="moveit_ros_move_group",
-        executable="move_group",
-        name="move_group",
-        output="screen",
-        parameters=[moveit_config.to_dict()],
-    )
-
     # Spawn the teleop_controller_node after the MoveGroup node is running
     teleop_node = Node(
         package="robot_teleoperation",
@@ -41,17 +32,8 @@ def generate_launch_description():
         parameters=[moveit_config.to_dict()],
     )
 
-    start_teleop_node_after_Moviet = RegisterEventHandler(
-        event_handler=OnProcessStart(
-            target_action=move_group_node,
-            on_start=teleop_node,
-        )
-    )
-
     return LaunchDescription(
         [
-            #move_group_node,
-            teleop_node,
-            #start_teleop_node_after_Moviet,
+            teleop_node
         ]
     )
